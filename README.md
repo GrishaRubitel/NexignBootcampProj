@@ -133,8 +133,8 @@ CREATE TABLE transactions (
 	CONSTRAINT transactions_pk PRIMARY KEY (transaction_id)
 );
 
-ALTER TABLE bootcamp_pro.transactions ADD CONSTRAINT transactions_all_abonents_fk FOREIGN KEY (msisdn) REFERENCES cdr_abonents(msisdn) ON DELETE SET NULL ON UPDATE CASCADE;
-ALTER TABLE bootcamp_pro.transactions ADD CONSTRAINT transactions_call_names_fk FOREIGN KEY (call_id) REFERENCES call_names(call_id) ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE transactions ADD CONSTRAINT transactions_all_abonents_fk FOREIGN KEY (msisdn) REFERENCES cdr_abonents(msisdn) ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE transactions ADD CONSTRAINT transactions_call_names_fk FOREIGN KEY (call_id) REFERENCES call_names(call_id) ON DELETE SET NULL ON UPDATE CASCADE;
 
 INSERT INTO call_names (call_id) VALUES('01');
 INSERT INTO call_names (call_id) VALUES('02');
