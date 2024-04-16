@@ -13,4 +13,18 @@ public class BrtAbonentsService {
     public Iterable<BrtAbonents> findAll() {
         return brtAbonentsRepository.findAll();
     }
+
+    public boolean findInjection(long msisdn) {
+        Iterable<BrtAbonents> brtAbonents = brtAbonentsRepository.findAll();
+        for (BrtAbonents abonent : brtAbonents) {
+            if (abonent.getMsisdn() == msisdn) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public Iterable<BrtAbonents> selectAllAbonents() {
+        return brtAbonentsRepository.findAll();
+    }
 }

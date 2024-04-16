@@ -1,20 +1,26 @@
 package com.bootcamp_proj.bootcampproj.standalone_services;
 import com.bootcamp_proj.bootcampproj.additional_classes.abonentHolder;
+import com.bootcamp_proj.bootcampproj.psql_brt_abonents.BrtAbonentsService;
 import com.bootcamp_proj.bootcampproj.psql_cdr_abonents.CdrAbonents;
 import com.bootcamp_proj.bootcampproj.psql_cdr_abonents.CdrAbonentsService;
 import com.bootcamp_proj.bootcampproj.psql_transactions.Transaction;
 import com.bootcamp_proj.bootcampproj.psql_transactions.TransactionService;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.stereotype.Service;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
-
-import com.google.gson.JsonObject;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 @EnableAsync
@@ -22,20 +28,22 @@ public class CdrGenerator implements InitializingBean {
     private static final String OUT_CALL_TYPE_CODE = "01";
     private static final String IN_CALL_TYPE_CODE = "02";
     public static final String DATA_TOPIC = "data-topic";
-    public static final String CALL_ID = "callId";
-    public static final String MSISDN = "msisdn";
-    public static final String MSISDN1 = "msisdnTo";
-    public static final String UNIX_START = "unixStart";
-    public static final String UNIX_END = "unixEnd";
+    public static final int DELAY = 300;
+    public static final double CALL_CHANCE = 0.7;
+    public static final String TEMP_CDR_TXT = "./temp/CDR.txt";
+
+    private int counter = 0;
 
     @Autowired
     private CdrAbonentsService cdrAbonentsService;
     @Autowired
     private TransactionService transactionService;
     @Autowired
-    private KafkaTemplate<String, String> kafkaTemplate;
+    private KafkaTemplate<String, byte[]> kafkaTemplate;
 
     private static CdrGenerator instance = null;
+    @Autowired
+    private BrtAbonentsService brtAbonentsService;
 
     @Override
     public void afterPropertiesSet() throws Exception {
@@ -54,7 +62,7 @@ public class CdrGenerator implements InitializingBean {
         return target;
     }
 
-    public void switchEmulator() throws InterruptedException {
+    public void switchEmulator() throws InterruptedException, IOException {
         int unixStart = 1672531200;
         int unixFinish = 1704067199;
 
@@ -63,27 +71,16 @@ public class CdrGenerator implements InitializingBean {
         LinkedList<abonentHolder> abonents = sqlSelectPhoneNumbers(unixStart);
         Random random = new Random();
 
-        int counter = 0;
-
-        JsonObject cdrHolder = new JsonObject();
+        LinkedList<String> records = new LinkedList<String>();
 
         while (unixStart <= unixFinish) {
-            Thread.sleep(300);
-            if (random.nextDouble() >= 0.7) {
+            Thread.sleep(DELAY);
+            if (random.nextDouble() >= CALL_CHANCE) {
 
-                cdrHolder = mergeJsonObjects(cdrHolder, generateCallRecord(unixStart, counter, random, abonents));
+                generateCallRecord(unixStart, random, abonents, records);
 
-                counter++;
-                System.out.println("CDR: Добавлена новая запись " + counter + "/5");
-                if (counter == 5) {
-                    System.out.println("CDR: Достигнут предел");
-                    System.out.println("CDR: " + cdrHolder);
-
-                    kafkaTemplate.send(DATA_TOPIC, 0,null, cdrHolder.toString());
-                    kafkaTemplate.flush();
-
-                    counter = 0;
-                    cdrHolder = new JsonObject();
+                if (counter == 10) {
+                    sendTransactionsData(records);
                 }
             }
             unixStart += random.nextInt(100,1000);
@@ -95,7 +92,11 @@ public class CdrGenerator implements InitializingBean {
     }
 
     @Async
-    public JsonObject generateCallRecord(int unixCurr, int counter, Random random, LinkedList<abonentHolder> abonents) {
+    public void generateCallRecord(int unixCurr,
+                                   Random random,
+                                   LinkedList<abonentHolder> abonents,
+                                   LinkedList<String> records) throws IOException {
+
         abonentHolder msisdn1 = abonents.get(random.nextInt(abonents.size()));
         abonentHolder msisdn2 = abonents.get(random.nextInt(abonents.size()));
 
@@ -115,45 +116,49 @@ public class CdrGenerator implements InitializingBean {
             t2 = IN_CALL_TYPE_CODE;
         }
 
-        Transaction rec1 = buildStandaloneRecord(t1, msisdn1.getMsisdn(), msisdn2.getMsisdn(), start, unixCurr);
-        Transaction rec2 = buildStandaloneRecord(t2, msisdn2.getMsisdn(), msisdn1.getMsisdn(), start, unixCurr);
+        buildStandaloneRecord(t1, msisdn1.getMsisdn(), msisdn2.getMsisdn(), start, unixCurr, records);
 
-        JsonObject json = new JsonObject();
-        json.add(String.valueOf(2 * counter), serializeTransaction(rec1));
-        json.add(String.valueOf(2 * counter + 1), serializeTransaction(rec2));
+        if (counter == 10) {
+            sendTransactionsData(records);
+        }
 
-        return json;
+        if (brtAbonentsService.findInjection(msisdn2.getMsisdn())) {
+            buildStandaloneRecord(t2, msisdn2.getMsisdn(), msisdn1.getMsisdn(), start, unixCurr, records);
+        }
     }
 
-    private Transaction buildStandaloneRecord(String type, long m1, long m2, int start, int end) {
+    private void buildStandaloneRecord(String type,
+                                       long m1,
+                                       long m2,
+                                       int start,
+                                       int end,
+                                       LinkedList<String> records) {
+
         Transaction rec = new Transaction(m1, m2, type, start, end);
         transactionService.insertRecord(rec);
-        return rec;
+        records.add(rec.toString());
+        counter++;
+        System.out.println("CDR: Добавлена новая запись " + counter + "/10");
     }
 
-    private JsonObject serializeTransaction(Transaction transaction) {
-        JsonObject transactionJson = new JsonObject();
+    private void sendTransactionsData(LinkedList<String> records) throws IOException {
+        System.out.println("CDR: Достигнут предел");
 
-        transactionJson.addProperty(CALL_ID, transaction.getCallId());
-        transactionJson.addProperty(MSISDN, transaction.getMsisdn());
-        transactionJson.addProperty(MSISDN1, transaction.getMsisdnTo());
-        transactionJson.addProperty(UNIX_START, transaction.getUnixStart());
-        transactionJson.addProperty(UNIX_END, transaction.getUnixEnd());
+        String plainText = "";
 
-        return transactionJson;
-    }
-
-    private JsonObject mergeJsonObjects(JsonObject json1, JsonObject json2) {
-        JsonObject mergedJson = new JsonObject();
-
-        for (String key : json1.keySet()) {
-            mergedJson.add(key, json1.get(key));
+        for (String elem : records) {
+            plainText += elem + "\n";
         }
 
-        for (String key : json2.keySet()) {
-            mergedJson.add(key, json2.get(key));
+        try (BufferedWriter bR = new BufferedWriter(new FileWriter(TEMP_CDR_TXT))) {
+            bR.write(plainText);
         }
 
-        return mergedJson;
+        byte[] fileBytes = Files.readAllBytes(Path.of(TEMP_CDR_TXT));
+
+        kafkaTemplate.send(DATA_TOPIC, 0,null, fileBytes);
+        counter = 0;
+
+        records.clear();
     }
 }

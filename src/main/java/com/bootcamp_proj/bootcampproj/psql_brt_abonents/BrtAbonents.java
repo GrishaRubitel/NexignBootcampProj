@@ -9,16 +9,18 @@ import jakarta.persistence.Table;
 public class BrtAbonents {
     @Id
     private long msisdn;
-    private int tariffId;
-    private double moneyBalance;
+    private int tariffid;
+    private double money;
+
+    public long getMsisdn() {
+        return msisdn;
+    }
 
     public BrtAbonents() {}
 
-    public BrtAbonents(long msisdn, int tariffId, double moneyBalance) {
+    public BrtAbonents(long msisdn, int tariffId, double money) {
         this.msisdn = msisdn;
-        this.tariffId = tariffId;
-        this.moneyBalance = moneyBalance;
+        this.tariffid = tariffId;
+        this.money = money;
     }
-
-    //public void selectNetUsers()
 }

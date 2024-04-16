@@ -5,6 +5,8 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ComponentScan;
 
+import java.io.IOException;
+
 @SpringBootApplication
 @ComponentScan(basePackages = {"com.bootcamp_proj"})
 public class BootcampProjApplication {
@@ -21,6 +23,8 @@ public class BootcampProjApplication {
 			cdrGenerator.switchEmulator();
 		} catch (InterruptedException e) {
             System.out.println(e);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
         System.out.println("finish");
 	}
