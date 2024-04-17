@@ -9,13 +9,6 @@
 
 ---
 
-После подготовки докера создаём новую папку с проектом и “пуллим” образ для Постгреса
-
-```powershell
-mkdir BootcampProj
-docker pull postgres
-```
-
 Дальше создаём `docker-compose.yml` 
 
 ```powershell
