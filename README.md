@@ -5,10 +5,6 @@
 1. [https://www.docker.com/products/docker-desktop/](https://www.docker.com/products/docker-desktop/)
 2. [https://learn.microsoft.com/ru-ru/windows/wsl/install](https://learn.microsoft.com/ru-ru/windows/wsl/install)
 
----
-
----
-
 Дальше создаём `docker-compose.yml` 
 
 ```powershell
