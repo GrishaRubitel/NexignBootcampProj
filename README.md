@@ -16,7 +16,7 @@ mkdir BootcampProj
 docker pull postgres
 ```
 
-Дальше создаём `**docker-compose.yml`** 
+Дальше создаём `docker-compose.yml` 
 
 ```powershell
 cat << EOF > docker-compose.yml
