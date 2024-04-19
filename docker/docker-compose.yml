@@ -1,0 +1,66 @@
+version: '3'
+services:
+  db:
+    image: postgres
+    container_name: postgres-server
+    restart: always
+    shm_size: 128mb
+    environment:
+      POSTGRES_DB: bootcamp_db
+      POSTGRES_USER: dvpsqluser
+      POSTGRES_PASSWORD: dvpsql 
+    expose:
+      - "5434"
+    ports:
+      - "5434:5434"
+    command: -p 5434
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 5435:5435
+  zookeeper:
+    image: wurstmeister/zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    restart: always
+  kafka1:
+    image: wurstmeister/kafka:latest
+    ports:
+      - "9092:9092"
+    expose:
+      - "9093"
+    environment:
+      KAFKA_ADVERTISED_LISTENERS: INSIDE://kafka1:9093,OUTSIDE://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
+      KAFKA_LISTENERS: INSIDE://0.0.0.0:9093,OUTSIDE://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_BROKER_ID: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_CREATE_TOPICS: "data-topic:3:1, trigger-topic:2:1"
+    depends_on:
+      - zookeeper
+    restart: always
+  kafka2:
+    image: wurstmeister/kafka:latest
+    ports:
+      - "9094:9094"
+    expose:
+      - "9095"
+    environment:
+      KAFKA_ADVERTISED_LISTENERS: INSIDE://kafka2:9095,OUTSIDE://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
+      KAFKA_LISTENERS: INSIDE://0.0.0.0:9095,OUTSIDE://0.0.0.0:9094
+      KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_BROKER_ID: 2
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_CREATE_TOPICS: "data-topic:3:1, trigger-topic:2:1"
+    depends_on:
+      - zookeeper
+    
+    
