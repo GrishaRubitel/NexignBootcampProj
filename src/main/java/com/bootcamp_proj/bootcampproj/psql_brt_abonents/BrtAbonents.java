@@ -9,8 +9,8 @@ import jakarta.persistence.Table;
 public class BrtAbonents {
     @Id
     private long msisdn;
-    private int tariffid;
-    private double money;
+    private String tariff_id;
+    private double money_balance;
 
     public long getMsisdn() {
         return msisdn;
@@ -18,9 +18,9 @@ public class BrtAbonents {
 
     public BrtAbonents() {}
 
-    public BrtAbonents(long msisdn, int tariffId, double money) {
+    public BrtAbonents(long msisdn, String tariffId, double money) {
         this.msisdn = msisdn;
-        this.tariffid = tariffId;
-        this.money = money;
+        this.tariff_id = tariffId;
+        this.money_balance = money;
     }
 }

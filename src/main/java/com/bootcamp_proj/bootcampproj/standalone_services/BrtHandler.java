@@ -15,7 +15,7 @@ public class BrtHandler {
     public static final String PART_ZERO = "0";
 
     @KafkaListener(topics = DATA_TOPIC, groupId = BOOTCAMP_PROJ_GROUP, topicPartitions = {
-            @TopicPartition(topic = DATA_TOPIC, partitions = { "0" })
+            @TopicPartition(topic = DATA_TOPIC, partitions = PART_ZERO)
     })
     public void consumeFromDataTopic(String message) {
         System.out.println("BRT: Received message from data-topic: \n" + message);
