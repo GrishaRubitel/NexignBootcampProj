@@ -4,12 +4,18 @@ import jakarta.persistence.*;
 @Entity
 @Table(name="transactions")
 public class Transaction {
-    private static final String IN_BREAK = ", ";
+    protected static final String IN_BREAK = ", ";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private long transactionId;
-    private long msisdn;
+    protected long transactionId;
+    protected long msisdn;
+    protected long msisdnTo;
+    protected String callId;
+    protected int unixStart;
+    protected int unixEnd;
+
+    public Transaction() {}
 
     public long getMsisdn() {
         return msisdn;
@@ -31,21 +37,14 @@ public class Transaction {
         return unixEnd;
     }
 
-    private long msisdnTo;
-    private String callId;
-    private int unixStart;
-    private int unixEnd;
-
-    public Transaction() {}
-
     public Transaction(String rec) {
         String[] split = rec.split(IN_BREAK);
 
-        this.msisdn = Long.parseLong(split[1]);
-        this.msisdnTo = Long.parseLong(split[2]);
-        this.callId = split[0];
-        this.unixStart = Integer.parseInt(split[3]);
-        this.unixEnd = Integer.parseInt(split[4]);
+        callId = split[0];
+        msisdn = Long.parseLong(split[1]);
+        msisdnTo = Long.parseLong(split[2]);
+        unixStart = Integer.parseInt(split[3]);
+        unixEnd = Integer.parseInt(split[4]);
     }
 
     public Transaction(long msisdn, long msisdnTo, String callId, int unixStart, int unixEnd) {

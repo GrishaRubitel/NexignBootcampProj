@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -39,7 +40,7 @@ public class CdrGenerator implements InitializingBean {
     @Autowired
     private TransactionService transactionService;
     @Autowired
-    private KafkaTemplate<String, byte[]> kafkaTemplate;
+    private KafkaTemplate<String, String> kafkaTemplate;
 
     private static CdrGenerator instance = null;
     @Autowired
@@ -154,9 +155,9 @@ public class CdrGenerator implements InitializingBean {
             bR.write(plainText);
         }
 
-        byte[] fileBytes = Files.readAllBytes(Path.of(TEMP_CDR_TXT));
+        String content = new String(Files.readAllBytes(Paths.get(TEMP_CDR_TXT)));
 
-        kafkaTemplate.send(DATA_TOPIC, 0,null, fileBytes);
+        kafkaTemplate.send(DATA_TOPIC, 0,null, content);
         counter = 0;
 
         records.clear();

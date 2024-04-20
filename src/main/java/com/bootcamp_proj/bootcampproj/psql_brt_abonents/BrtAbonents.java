@@ -16,6 +16,14 @@ public class BrtAbonents {
         return msisdn;
     }
 
+    public String getTariffId() {
+        return tariff_id;
+    }
+
+    public double getMoneyBalance() {
+        return money_balance;
+    }
+
     public BrtAbonents() {}
 
     public BrtAbonents(long msisdn, String tariffId, double money) {
@@ -23,4 +31,5 @@ public class BrtAbonents {
         this.tariff_id = tariffId;
         this.money_balance = money;
     }
+
 }

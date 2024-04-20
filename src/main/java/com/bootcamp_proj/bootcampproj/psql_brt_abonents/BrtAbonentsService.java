@@ -3,6 +3,8 @@ package com.bootcamp_proj.bootcampproj.psql_brt_abonents;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
+
 @Service
 public class BrtAbonentsService {
     @Autowired
@@ -26,5 +28,10 @@ public class BrtAbonentsService {
 
     public Iterable<BrtAbonents> selectAllAbonents() {
         return brtAbonentsRepository.findAll();
+    }
+
+    public String getTariffId(long msisdn) {
+        Iterable<BrtAbonents> brtAbonent = brtAbonentsRepository.findAllById(Collections.singleton(msisdn));
+        return brtAbonent.iterator().next().getTariffId();
     }
 }
