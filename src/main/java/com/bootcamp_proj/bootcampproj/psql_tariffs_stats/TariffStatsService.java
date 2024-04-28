@@ -29,4 +29,8 @@ public class TariffStatsService {
         Iterable<TariffStats> temp = tariffStatsRepository.findAllById(Collections.singleton(msisdn));
         return temp.iterator().next();
     }
+
+    public Iterable<TariffStats> getAllTariffStats() {
+        return tariffStatsRepository.findAll();
+    }
 }

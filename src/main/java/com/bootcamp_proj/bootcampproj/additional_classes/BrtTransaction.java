@@ -10,6 +10,7 @@ import java.lang.reflect.Array;
 
 public class BrtTransaction extends Transaction {
     private static final String REGEX = ", ";
+
     protected String tariffId;
     protected boolean inNet;
 
@@ -24,8 +25,11 @@ public class BrtTransaction extends Transaction {
         unixEnd = Integer.parseInt(starr[5]);
     }
 
-    public BrtTransaction() {
+    public BrtTransaction(long msisdn) {
+        this.msisdnTo = msisdn;
     }
+
+    public BrtTransaction() {}
 
     public String getTariffId() {
         return tariffId;

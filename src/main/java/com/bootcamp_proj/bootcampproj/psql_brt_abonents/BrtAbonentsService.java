@@ -34,4 +34,8 @@ public class BrtAbonentsService {
         Iterable<BrtAbonents> brtAbonent = brtAbonentsRepository.findAllById(Collections.singleton(msisdn));
         return brtAbonent.iterator().next().getTariffId();
     }
+
+    public BrtAbonents findById(long msisdn) {
+        return brtAbonentsRepository.findById(msisdn).orElse(null);
+    }
 }
