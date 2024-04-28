@@ -39,14 +39,6 @@ CREATE TABLE tariffs (
 	CONSTRAINT tariffs_unique UNIQUE (tariff_name)
 );
 
-CREATE TABLE users_left_minutes (
-	msisdn int8 NOT NULL,
-	tariff_id varchar NULL,
-	left_minutes int4 NULL,
-	CONSTRAINT users_left_minutes_pk PRIMARY KEY (msisdn),
-	CONSTRAINT users_left_minutes_tariffs_fk FOREIGN KEY (tariff_id) REFERENCES tariffs(tariff_id) ON DELETE SET NULL ON UPDATE CASCADE
-);
-
 CREATE TABLE users (
 	msisdn int8 NOT NULL,
 	tariff_id varchar NULL,
@@ -55,6 +47,15 @@ CREATE TABLE users (
 	CONSTRAINT users_tariffs_fk FOREIGN KEY (tariff_id) REFERENCES tariffs(tariff_id) ON DELETE SET NULL ON UPDATE CASCADE
 );
 
+CREATE TABLE users_minutes (
+	msisdn int8 NOT NULL,
+	tariff_id varchar NULL,
+	used_minutes_in int4 NULL,
+	used_minutes_out int4 NULL,
+	CONSTRAINT users_minutes_pk PRIMARY KEY (msisdn),
+	CONSTRAINT users_minutes_tariffs_fk FOREIGN KEY (tariff_id) REFERENCES tariffs(tariff_id) ON DELETE SET NULL ON UPDATE CASCADE,
+	CONSTRAINT users_minutes_users_fk FOREIGN KEY (msisdn) REFERENCES users(msisdn) ON DELETE SET NULL ON UPDATE CASCADE
+);
 
 INSERT INTO cdr_abonents (msisdn) VALUES(7968969935);
 INSERT INTO cdr_abonents (msisdn) VALUES(74571938267);

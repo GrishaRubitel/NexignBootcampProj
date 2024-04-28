@@ -62,5 +62,6 @@ services:
       KAFKA_CREATE_TOPICS: "data-topic:3:1, trigger-topic:2:1"
     depends_on:
       - zookeeper
+    restart: always
     
     

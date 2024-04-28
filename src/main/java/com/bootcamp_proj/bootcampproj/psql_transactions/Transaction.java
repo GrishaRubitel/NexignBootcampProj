@@ -21,12 +21,16 @@ public class Transaction {
         return msisdn;
     }
 
-    public long getMsisdnTo() {
-        return msisdnTo;
-    }
-
     public String getCallId() {
         return callId;
+    }
+
+    public long getTransactionId() {
+        return transactionId;
+    }
+
+    public long getMsisdnTo() {
+        return msisdnTo;
     }
 
     public int getUnixStart() {
@@ -35,16 +39,6 @@ public class Transaction {
 
     public int getUnixEnd() {
         return unixEnd;
-    }
-
-    public Transaction(String rec) {
-        String[] split = rec.split(IN_BREAK);
-
-        callId = split[0];
-        msisdn = Long.parseLong(split[1]);
-        msisdnTo = Long.parseLong(split[2]);
-        unixStart = Integer.parseInt(split[3]);
-        unixEnd = Integer.parseInt(split[4]);
     }
 
     public Transaction(long msisdn, long msisdnTo, String callId, int unixStart, int unixEnd) {

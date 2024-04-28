@@ -16,16 +16,15 @@ public class BootcampProjApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(BootcampProjApplication.class, args);
-		
+
 		System.out.println("start");
-        CdrGenerator cdrGenerator = CdrGenerator.getInstance();
+		CdrGenerator cdrGenerator = CdrGenerator.getInstance();
 		try {
 			cdrGenerator.switchEmulator();
 		} catch (InterruptedException e) {
-            System.out.println(e);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        System.out.println("finish");
+			System.out.println(e);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
 	}
 }

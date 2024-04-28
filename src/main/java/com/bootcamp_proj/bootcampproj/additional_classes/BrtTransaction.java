@@ -1,20 +1,30 @@
 package com.bootcamp_proj.bootcampproj.additional_classes;
 import com.bootcamp_proj.bootcampproj.psql_transactions.Transaction;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.io.IOException;
+import java.lang.reflect.Array;
+
 public class BrtTransaction extends Transaction {
-    private String tariffId;
+    private static final String REGEX = ", ";
+    protected String tariffId;
+    protected boolean inNet;
 
-    public BrtTransaction(String rec) {
-        String[] split = rec.split(IN_BREAK);
+    public BrtTransaction(String str) {
+        String[] starr = str.split(REGEX);
 
-        transactionId = Long.parseLong(split[0]);
-        callId = split[1];
-        msisdn = Long.parseLong(split[2]);
-        msisdnTo = Long.parseLong(split[3]);
-        unixStart = Integer.parseInt(split[4]);
-        unixEnd = Integer.parseInt(split[5]);
+        transactionId = Long.parseLong(starr[0]);
+        callId = starr[1];
+        msisdn = Long.parseLong(starr[2]);
+        msisdnTo = Long.parseLong(starr[3]);
+        unixStart = Integer.parseInt(starr[4]);
+        unixEnd = Integer.parseInt(starr[5]);
+    }
+
+    public BrtTransaction() {
     }
 
     public String getTariffId() {
@@ -23,6 +33,14 @@ public class BrtTransaction extends Transaction {
 
     public void setTariffId(String tariffId) {
         this.tariffId = tariffId;
+    }
+
+    public boolean getInNet() {
+        return inNet;
+    }
+
+    public void setInNet(boolean inNet) {
+        this.inNet = inNet;
     }
 
     @Override
@@ -39,5 +57,9 @@ public class BrtTransaction extends Transaction {
             e.printStackTrace();
             return null;
         }
+    }
+
+    public int getCallLength() {
+        return unixEnd - unixStart;
     }
 }
