@@ -31,5 +31,4 @@ public class BrtAbonents {
         this.tariff_id = tariffId;
         this.money_balance = money;
     }
-
 }

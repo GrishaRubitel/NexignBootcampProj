@@ -8,7 +8,6 @@ import jakarta.persistence.*;
 public class TariffStats {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private String tariff_id;
     private String tariff_name;
     private int num_of_minutes;

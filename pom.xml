@@ -15,6 +15,7 @@
 	<description>BootcampProj</description>
 	<properties>
 		<java.version>22</java.version>
+		<exec.mainClass>com.bootcamp_proj.bootcampproj.BootcampProjApplication</exec.mainClass>
 	</properties>
 	<dependencies>
 		<dependency>

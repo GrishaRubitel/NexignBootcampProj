@@ -8,12 +8,14 @@ import com.bootcamp_proj.bootcampproj.psql_transactions.Transaction;
 import com.bootcamp_proj.bootcampproj.psql_transactions.TransactionService;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.TopicPartition;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.*;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
@@ -32,12 +34,7 @@ public class CdrGenerator implements InitializingBean {
     private static final double CALL_CHANCE_EQUATOR = 1 - (1 - CALL_CHANCE) / 2;
     private static final String TEMP_CDR_TXT = "./temp/CDR.txt";
     private static final String DATA_TOPIC = "data-topic";
-    private static final String TRIGGER_TOPIC = "trigger-topic";
-    private static final String PART_ZERO = "0";
     private static final int PART_ZERO_INT = 0;
-    private static final String PART_ONE = "1";
-    private static final int PART_ONE_INT = 1;
-    private static final String PART_TWO = "2";
     private static Random random = new Random();
     private static LinkedList<AbonentHolder> abonents;
     private static ConcurentRecordHolder records;
