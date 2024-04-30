@@ -31,4 +31,12 @@ public class BrtAbonents {
         this.tariff_id = tariffId;
         this.money_balance = money;
     }
+
+    public void changeMoneyBalance(double value, boolean increase) {
+        if (increase) {
+            money_balance += value;
+        } else {
+            money_balance -= value;
+        }
+    }
 }

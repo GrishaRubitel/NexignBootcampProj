@@ -5,6 +5,8 @@ import com.bootcamp_proj.bootcampproj.psql_brt_abonents.BrtAbonents;
 import com.bootcamp_proj.bootcampproj.psql_brt_abonents.BrtAbonentsService;
 import com.bootcamp_proj.bootcampproj.psql_tariffs_stats.TariffStats;
 import com.bootcamp_proj.bootcampproj.psql_tariffs_stats.TariffStatsService;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.PropertySource;
@@ -77,14 +79,34 @@ public class BrtHandler {
                     temp.setInNet(checkAbonent(temp.getMsisdnTo()));
 
                     String url = HOST + PORT + SINGLE_PAY_PARAM + encodeParams(temp.toJson());;
+                    String response;
 
                     try {
-                        System.out.println("BRT API Callback: \n" + restTemplate.getForObject(url, String.class));
+                        response = restTemplate.getForObject(url, String.class);
+                        System.out.println("BRT API Callback: \n" + response);
+                        proceedPayment(response);
                     } catch (Exception e) {
                         System.out.println("BRT API: Exception happened");
                         e.printStackTrace();
                     }
                 }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void proceedPayment(String cheque) {
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode jsonNode = objectMapper.readTree(cheque);
+            long msisdn = jsonNode.get("msisdn").asLong();
+            double price = jsonNode.get("callCost").asDouble();
+
+            BrtAbonents abonent = brtAbonentsMap.get(msisdn);
+            if (price != 0) {
+                abonent.changeMoneyBalance(price, false);
+                brtAbonentsService.commitUserTransaction(abonent);
             }
         } catch (IOException e) {
             e.printStackTrace();

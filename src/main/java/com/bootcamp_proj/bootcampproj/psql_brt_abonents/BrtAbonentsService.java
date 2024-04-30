@@ -38,4 +38,8 @@ public class BrtAbonentsService {
     public BrtAbonents findById(long msisdn) {
         return brtAbonentsRepository.findById(msisdn).orElse(null);
     }
+
+    public void commitUserTransaction(BrtAbonents abonent) {
+        brtAbonentsRepository.save(abonent);
+    }
 }
