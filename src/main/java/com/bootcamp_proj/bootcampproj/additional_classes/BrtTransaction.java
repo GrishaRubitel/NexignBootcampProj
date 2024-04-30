@@ -63,7 +63,7 @@ public class BrtTransaction extends Transaction {
         }
     }
 
-    public int getCallLength() {
+    public double getCallLength() {
         return unixEnd - unixStart;
     }
 }

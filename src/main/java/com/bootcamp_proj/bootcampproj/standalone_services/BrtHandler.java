@@ -1,12 +1,14 @@
 package com.bootcamp_proj.bootcampproj.standalone_services;
 
 import com.bootcamp_proj.bootcampproj.additional_classes.BrtTransaction;
+import com.bootcamp_proj.bootcampproj.additional_classes.MonthStack;
 import com.bootcamp_proj.bootcampproj.psql_brt_abonents.BrtAbonents;
 import com.bootcamp_proj.bootcampproj.psql_brt_abonents.BrtAbonentsService;
 import com.bootcamp_proj.bootcampproj.psql_tariffs_stats.TariffStats;
 import com.bootcamp_proj.bootcampproj.psql_tariffs_stats.TariffStatsService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.PropertySource;
@@ -29,6 +31,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.Stack;
 
 @Service
 @EnableAsync
@@ -39,18 +42,24 @@ public class BrtHandler {
     private static final String CDR_FILE = "../../../../temp/CDR.txt";
     private static final String HOST = "http://localhost:";
     private static final String SINGLE_PAY_PARAM = "/api/hrs/single-pay?param=";
+    private static final String MONTHLY_PAY_PARAM = "/api/hrs/monthly-pay?param=";
+
     private static final String PORT = "8082";
 
     private static Map<Long, BrtAbonents> brtAbonentsMap;
-    private static Map<String, TariffStats> tariffStats;
+    private static LinkedList<String> monthlyTariffs;
+    private static MonthStack monthHolder;
     private static RestTemplate restTemplate;
 
     @Autowired
     TariffStatsService tariffStatsService;
     @Autowired
     BrtAbonentsService brtAbonentsService;
-    @Autowired
-    private KafkaTemplate<String, String> kafkaTemplate;
+
+    @PostConstruct
+    private void initializeStack() {
+        monthHolder = fillStack();
+    }
 
     @KafkaListener(topics = DATA_TOPIC, groupId = BOOTCAMP_PROJ_GROUP, topicPartitions = {
             @TopicPartition(topic = DATA_TOPIC, partitions = PART_ZERO)
@@ -60,13 +69,10 @@ public class BrtHandler {
         cdrDataHandler(message);
     }
 
-
     protected void cdrDataHandler(String message) {
-        //selectAllTariffs();
+        selectAllTariffs();
         selectAllAbonents();
         restTemplate = new RestTemplate();
-
-        LinkedList<String> records = new LinkedList<>();
 
         try (BufferedReader br = new BufferedReader(new StringReader(message))) {
 
@@ -74,25 +80,43 @@ public class BrtHandler {
             while ((line = br.readLine()) != null) {
                 BrtTransaction temp = new BrtTransaction(line);
 
+                checkMonthChangement(temp.getUnixEnd());
+
                 if (checkAbonent(temp.getMsisdn())) {
                     temp.setTariffId(brtAbonentsMap.get(temp.getMsisdn()).getTariffId());
                     temp.setInNet(checkAbonent(temp.getMsisdnTo()));
 
-                    String url = HOST + PORT + SINGLE_PAY_PARAM + encodeParams(temp.toJson());;
-                    String response;
-
-                    try {
-                        response = restTemplate.getForObject(url, String.class);
-                        System.out.println("BRT API Callback: \n" + response);
-                        proceedPayment(response);
-                    } catch (Exception e) {
-                        System.out.println("BRT API: Exception happened");
-                        e.printStackTrace();
-                    }
+                    proceedPayment(sendGetToHrs(temp.toJson(), SINGLE_PAY_PARAM));
                 }
             }
         } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+
+    private String sendGetToHrs(String temp, String urlParam) {
+        String url = HOST + PORT + urlParam + encodeParams(temp);;
+        String response;
+        try {
+            response = restTemplate.getForObject(url, String.class);
+            System.out.println("BRT API Callback: \n" + response);
+            return response;
+        } catch (Exception e) {
+            System.out.println("BRT API: Exception happened");
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    private void checkMonthChangement(int record) {
+        int dif = monthHolder.peek() - record;
+        System.out.println("Dif: " + dif);
+        if (monthHolder.checkTop(record)) {
+            for (BrtAbonents abonent : brtAbonentsMap.values()) {
+                if (monthlyTariffs.contains(abonent.getTariffId())) {
+                    sendGetToHrs(abonent.toJson(), MONTHLY_PAY_PARAM);
+                }
+            }
         }
     }
 
@@ -105,7 +129,7 @@ public class BrtHandler {
 
             BrtAbonents abonent = brtAbonentsMap.get(msisdn);
             if (price != 0) {
-                abonent.changeMoneyBalance(price, false);
+                abonent.decreaseMoneyBalance(price);
                 brtAbonentsService.commitUserTransaction(abonent);
             }
         } catch (IOException e) {
@@ -134,11 +158,13 @@ public class BrtHandler {
         }
     }
 
-    private void selectAllTariffs() throws IOException {
-        tariffStats = new HashMap<>();
+    private void selectAllTariffs(){
+        monthlyTariffs = new LinkedList<>();
 
         for (TariffStats elem : tariffStatsService.getAllTariffStats()) {
-            tariffStats.put(elem.getTariff_id(), elem);
+            if (elem.getPrice_of_period() != 0) {
+                monthlyTariffs.add(elem.getTariff_id());
+            }
         }
     }
 
@@ -169,5 +195,24 @@ public class BrtHandler {
             e.printStackTrace();
         }
         return encodedParams;
+    }
+
+    private MonthStack fillStack() {
+        MonthStack monthHolder = new MonthStack();
+
+        monthHolder.push(1701388800);
+        monthHolder.push(1698796800);
+        monthHolder.push(1696118400);
+        monthHolder.push(1693526400);
+        monthHolder.push(1690848000);
+        monthHolder.push(1688169600);
+        monthHolder.push(1685577600);
+        monthHolder.push(1682899200);
+        monthHolder.push(1680307200);
+        monthHolder.push(1677628800);
+        monthHolder.push(1675209600);
+        monthHolder.push(1672571200);
+
+        return monthHolder;
     }
 }

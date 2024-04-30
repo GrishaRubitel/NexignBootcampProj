@@ -1,5 +1,5 @@
 ---Тест на проверку параллельных звонков
-select msisdn, msisdn_to, unix_start, unix_end, unix_end - lead(unix_start) over (partition by msisdn order by unix_start desc) as call_len
+select msisdn, msisdn_to, unix_start, unix_end, lag(unix_start) over (partition by msisdn order by unix_start desc) - unix_end as call_len
 from transactions t
 order by msisdn, unix_start asc
 ---Пояснение

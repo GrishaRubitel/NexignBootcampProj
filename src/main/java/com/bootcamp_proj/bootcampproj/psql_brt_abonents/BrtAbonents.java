@@ -1,5 +1,6 @@
 package com.bootcamp_proj.bootcampproj.psql_brt_abonents;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
@@ -32,11 +33,21 @@ public class BrtAbonents {
         this.money_balance = money;
     }
 
-    public void changeMoneyBalance(double value, boolean increase) {
-        if (increase) {
-            money_balance += value;
-        } else {
-            money_balance -= value;
+    public void increaseMoneyBalance(double value) {
+        money_balance += value;
+    }
+
+    public void decreaseMoneyBalance(double value) {
+        money_balance -= value;
+    }
+
+    public String toJson() {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            return mapper.writeValueAsString(this);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
         }
     }
 }

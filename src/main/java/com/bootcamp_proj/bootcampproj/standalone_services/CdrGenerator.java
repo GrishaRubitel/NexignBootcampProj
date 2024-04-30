@@ -125,7 +125,9 @@ public class CdrGenerator implements InitializingBean {
     @Async
     public void generateCallRecord(int unixCurr,
                                    AbonentHolder msisdn1,
-                                   AbonentHolder msisdn2) throws IOException {
+                                   AbonentHolder msisdn2) throws IOException, InterruptedException {
+
+        Thread.sleep(random.nextInt(0,300));
 
         int start = random.nextInt(Math.max(msisdn1.getUnixLastCall(), msisdn2.getUnixLastCall()) + 3, unixCurr - 2);
         String t1;
@@ -139,16 +141,19 @@ public class CdrGenerator implements InitializingBean {
             t2 = IN_CALL_TYPE_CODE;
         }
 
-        buildStandaloneRecord(t1, msisdn1.getMsisdn(), msisdn2.getMsisdn(), start, unixCurr);
+        int lastCall = buildStandaloneRecord(t1, msisdn1.getMsisdn(), msisdn2.getMsisdn(), start, unixCurr);
 
         checkLength();
 
         if (brtAbonentsService.findInjection(msisdn2.getMsisdn())) {
             buildStandaloneRecord(t2, msisdn2.getMsisdn(), msisdn1.getMsisdn(), start, unixCurr);
         }
+
+        msisdn1.setUnixLastCall(lastCall);
+        msisdn2.setUnixLastCall(lastCall);
     }
 
-    private void buildStandaloneRecord(String type,
+    private int buildStandaloneRecord(String type,
                                        long m1,
                                        long m2,
                                        int start,
@@ -158,6 +163,8 @@ public class CdrGenerator implements InitializingBean {
         transactionService.insertRecord(rec);
         records.add(rec.toString());
         System.out.println("CDR: Добавлена новая запись " + records.getListLength() + "/10");
+
+        return rec.getUnixEnd();
     }
 
     private void sendTransactionsData() throws IOException {

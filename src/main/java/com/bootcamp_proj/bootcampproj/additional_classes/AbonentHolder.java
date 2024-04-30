@@ -16,4 +16,8 @@ public class AbonentHolder {
     public long getMsisdn() {
         return msisdn;
     }
+
+    public void setUnixLastCall(int unixLastCall) {
+        this.unixLastCall = unixLastCall;
+    }
 }
