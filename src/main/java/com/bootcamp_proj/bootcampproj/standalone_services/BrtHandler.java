@@ -28,10 +28,7 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.Map;
-import java.util.Stack;
+import java.util.*;
 
 @Service
 @EnableAsync
@@ -39,14 +36,14 @@ public class BrtHandler {
     private static final String BOOTCAMP_PROJ_GROUP = "bootcamp-proj-group";
     private static final String DATA_TOPIC = "data-topic";
     private static final String PART_ZERO = "0";
-    private static final String CDR_FILE = "../../../../temp/CDR.txt";
+    //private static final String CDR_FILE = "../../../../temp/CDR.txt";
     private static final String HOST = "http://localhost:";
     private static final String SINGLE_PAY_PARAM = "/api/hrs/single-pay?param=";
     private static final String MONTHLY_PAY_PARAM = "/api/hrs/monthly-pay?param=";
 
     private static final String PORT = "8082";
 
-    private static Map<Long, BrtAbonents> brtAbonentsMap;
+    private static WeakHashMap<Long, BrtAbonents> brtAbonentsMap = new WeakHashMap<>();
     private static LinkedList<String> monthlyTariffs;
     private static MonthStack monthHolder;
     private static RestTemplate restTemplate;
@@ -86,6 +83,8 @@ public class BrtHandler {
                     temp.setTariffId(brtAbonentsMap.get(temp.getMsisdn()).getTariffId());
                     temp.setInNet(checkAbonent(temp.getMsisdnTo()));
 
+                    System.out.println("BRT: Sending " + temp.toJson());
+
                     proceedPayment(sendGetToHrs(temp.toJson(), SINGLE_PAY_PARAM));
                 }
             }
@@ -109,8 +108,6 @@ public class BrtHandler {
     }
 
     private void checkMonthChangement(int record) {
-        int dif = monthHolder.peek() - record;
-        System.out.println("Dif: " + dif);
         if (monthHolder.checkTop(record)) {
             for (BrtAbonents abonent : brtAbonentsMap.values()) {
                 if (monthlyTariffs.contains(abonent.getTariffId())) {
@@ -151,7 +148,7 @@ public class BrtHandler {
     }
 
     private void selectAllAbonents() {
-        brtAbonentsMap = new HashMap<>();
+        brtAbonentsMap = new WeakHashMap<>();
 
         for (BrtAbonents elem : brtAbonentsService.findAll()) {
             brtAbonentsMap.put(elem.getMsisdn(), elem);
@@ -168,19 +165,19 @@ public class BrtHandler {
         }
     }
 
-    private void startWithExistingFile() {
-        StringBuilder content = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(new FileReader(CDR_FILE))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                content.append(line).append("\n");
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        cdrDataHandler(content.toString());
-    }
+//    private void startWithExistingFile() {
+//        StringBuilder content = new StringBuilder();
+//        try (BufferedReader reader = new BufferedReader(new FileReader(CDR_FILE))) {
+//            String line;
+//            while ((line = reader.readLine()) != null) {
+//                content.append(line).append("\n");
+//            }
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+//
+//        cdrDataHandler(content.toString());
+//    }
 
     private String callSinglePayAPI(String param) {
         String url = HOST + PORT + SINGLE_PAY_PARAM + param;

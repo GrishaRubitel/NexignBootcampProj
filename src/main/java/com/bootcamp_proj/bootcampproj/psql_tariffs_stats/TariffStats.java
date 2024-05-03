@@ -31,6 +31,14 @@ public class TariffStats {
         this.price_outcoming_calls = price_outcoming_calls;
         this.price_outcoming_calls_camo = price_outcoming_calls_camo;
         this.price_of_period = price_of_period;
+        internet_traffic = 0;
+        internet_max_speed = 0;
+        num_of_incoming_sms = 0;
+        num_of_outcoming_sms = 0;
+        price_incoming_sms = 0;
+        price_outcoming_sms = 0;
+        other_info = "";
+
     }
 
     public TariffStats() {

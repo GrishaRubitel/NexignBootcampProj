@@ -10,9 +10,6 @@ import java.io.IOException;
 @SpringBootApplication
 @ComponentScan(basePackages = {"com.bootcamp_proj"})
 public class BootcampProjApplication {
-	public static final String PSQL_HOST = "jdbc:postgresql://localhost:5432/bootcamp_pro";
-	public static final String PSQL_USER = "postgres";
-	public static final String PSQL_PASS = "dvpsql";
 
 	public static void main(String[] args) {
 		SpringApplication.run(BootcampProjApplication.class, args);

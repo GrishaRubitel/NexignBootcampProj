@@ -21,6 +21,7 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.WeakHashMap;
 
 @RestController
 @Service
@@ -29,7 +30,7 @@ public class HrsHandler {
     private static final String IN_CALL_TYPE_CODE = "02";
     private static final int ZERO = 0;
     private static final String TARIFF_BY_DEFAULT = "11";
-    private Map<String, TariffStats> tariffStats;
+    private WeakHashMap<String, TariffStats> tariffStats;
     private Map<Long, UserMinutes> usersWithTariff = new HashMap<>();
 
     @PostConstruct
@@ -62,7 +63,7 @@ public class HrsHandler {
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode jsonNode = objectMapper.readTree(param);
             long msisdn = jsonNode.get("msisdn").asLong();
-            String tariff = String.valueOf(jsonNode.get("tariff_id"));
+            String tariff = jsonNode.get("tariffId").asText();
 
             UserMinutes tempUser = checkUserContainment(msisdn, tariff);
             tempUser.zeroAllMinutes();
@@ -139,8 +140,8 @@ public class HrsHandler {
         }
     }
 
-    private Map<String, TariffStats> uploadTariff() {
-        Map<String, TariffStats> tS = new HashMap();
+    private WeakHashMap<String, TariffStats> uploadTariff() {
+        WeakHashMap<String, TariffStats> tS = new WeakHashMap();
         for (TariffStats elem : tariffStatsService.getAllTariffStats()) {
             tS.put(elem.getTariff_id(), elem);
         }
