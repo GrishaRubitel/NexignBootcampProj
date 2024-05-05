@@ -82,7 +82,7 @@ public class HrsHandler {
 
     private String tariffDispatch(String message) {
         HrsTransaction record = new HrsTransaction(message);
-        if (tariffStats.get(record.getTariffId()).getNum_of_minutes() == 0) {
+        if (tariffStats.get(record.getTariffId()).getPrice_of_period() == 0) {
             return noMinutesTariff(record, record.getTariffId());
         }
         return withMinutesTariff(record);

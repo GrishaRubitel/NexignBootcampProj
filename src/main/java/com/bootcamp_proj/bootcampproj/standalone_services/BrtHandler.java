@@ -30,6 +30,9 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
+/**
+ * BRT-сервис для манипуляции информацией об абонентах оператора "ромашка"
+ */
 @Service
 @EnableAsync
 public class BrtHandler {
@@ -40,7 +43,6 @@ public class BrtHandler {
     private static final String HOST = "http://localhost:";
     private static final String SINGLE_PAY_PARAM = "/api/hrs/single-pay?param=";
     private static final String MONTHLY_PAY_PARAM = "/api/hrs/monthly-pay?param=";
-
     private static final String PORT = "8082";
 
     private static WeakHashMap<Long, BrtAbonents> brtAbonentsMap = new WeakHashMap<>();
@@ -48,16 +50,30 @@ public class BrtHandler {
     private static MonthStack monthHolder;
     private static RestTemplate restTemplate;
 
+    /**
+     * Контроллер для взаимодействия сервиса с таблицей тарифов базы данных BRT
+     */
     @Autowired
     TariffStatsService tariffStatsService;
+    /**
+     * Контроллер для взаимодействия сервиса с таблицей абонентов ромашки базы данных BRT
+     */
     @Autowired
     BrtAbonentsService brtAbonentsService;
 
+    /**
+     * Конструктор для заполнения стэка различными UNIX-time, которые соответствуют первым секундам каждого месяца 2023-го года.
+     * Верхний элемент стека не равен новому месяцу. Он нужен чтобы показать ежемесячную плату.
+     */
     @PostConstruct
     private void initializeStack() {
         monthHolder = fillStack();
     }
 
+    /**
+     * Метод "отлавливает" новые сообщения из кафка-топика "data-topic:0", куда CDR-генератор отправляет CDR-файлы
+     * @param message CDR-файл
+     */
     @KafkaListener(topics = DATA_TOPIC, groupId = BOOTCAMP_PROJ_GROUP, topicPartitions = {
             @TopicPartition(topic = DATA_TOPIC, partitions = PART_ZERO)
     })
@@ -66,6 +82,12 @@ public class BrtHandler {
         cdrDataHandler(message);
     }
 
+    /**
+     * Метод извлекает из базы данных информацию о тарифах и абонентах "ромашки". После чего обрабатывает отдельные записи
+     * из CDR-файла. Каждая отдельная запись проверяется на нахождение первого абонента (msisdn) в БД "ромашки", и если
+     * нахождение потверждается, сервис запрашивает у HRS стоимость произошедшего звонка
+     * @param message CDR-файл
+     */
     protected void cdrDataHandler(String message) {
         selectAllTariffs();
         selectAllAbonents();
@@ -93,22 +115,32 @@ public class BrtHandler {
         }
     }
 
-    private String sendGetToHrs(String temp, String urlParam) {
-        String url = HOST + PORT + urlParam + encodeParams(temp);;
+    /**
+     * Метод формирует URL запрос для обращения к HRS и осуществляет его
+     * @param record JSON с полезной для HRS нагрузкой
+     * @param urlParam Вызываемый метод (ежемесячная плата или плата за отдельный звонок)
+     * @return Возвращает номер абонента и количество средств для списания
+     */
+    private String sendGetToHrs(String record, String urlParam) {
+        String url = HOST + PORT + urlParam + encodeParams(record);
         String response;
         try {
             response = restTemplate.getForObject(url, String.class);
             System.out.println("BRT API Callback: \n" + response);
             return response;
         } catch (Exception e) {
-            System.out.println("BRT API: Exception happened");
-            e.printStackTrace();
+            System.out.println("BRT API: Exception happened" + e.getMessage());
         }
         return null;
     }
 
-    private void checkMonthChangement(int record) {
-        if (monthHolder.checkTop(record)) {
+    /**
+     * Каждый раз, когда сервис получает новый CDR-файл, вызывается этот метод для проверки смены месяца.
+     * Если месяц меняется, то происходит ежемесечное списание средств у всех абонентов с соответствующим тарифным планом
+     * @param timestamp UNIX-time для проверки месяца
+     */
+    private void checkMonthChangement(int timestamp) {
+        if (monthHolder.checkTop(timestamp)) {
             for (BrtAbonents abonent : brtAbonentsMap.values()) {
                 if (monthlyTariffs.contains(abonent.getTariffId())) {
                     sendGetToHrs(abonent.toJson(), MONTHLY_PAY_PARAM);
@@ -117,6 +149,10 @@ public class BrtHandler {
         }
     }
 
+    /**
+     * Метод обрабатывает JSON, полученный от HRS, и списывает средства
+     * @param cheque JSON с номером абонента и количеством списываемых средствам
+     */
     private void proceedPayment(String cheque) {
         try {
             ObjectMapper objectMapper = new ObjectMapper();
@@ -134,6 +170,11 @@ public class BrtHandler {
         }
     }
 
+    /**
+     * Метод занимается нахождением запрашиваемого абонента в базе данных "ромашки"
+     * @param rec Номер телефона абонента
+     * @return Возвращает определенный "булеан", соответствующий состоянию нахождения или ненахождения абонента в БД ромашки
+     */
     private boolean checkAbonent(long rec) {
         if (brtAbonentsMap.containsKey(rec)) {
             return true;
@@ -147,6 +188,9 @@ public class BrtHandler {
         }
     }
 
+    /**
+     * Метод извлекает всех абонентов из БД "ромашки"
+     */
     private void selectAllAbonents() {
         brtAbonentsMap = new WeakHashMap<>();
 
@@ -155,6 +199,9 @@ public class BrtHandler {
         }
     }
 
+    /**
+     * Метод извлекает все тарифы из БД "ромашки"
+     */
     private void selectAllTariffs(){
         monthlyTariffs = new LinkedList<>();
 
@@ -165,6 +212,10 @@ public class BrtHandler {
         }
     }
 
+//    /**
+//     * Метод для мануального запуска BRT-сервиса при помощи информации из файла
+//     */
+//
 //    private void startWithExistingFile() {
 //        StringBuilder content = new StringBuilder();
 //        try (BufferedReader reader = new BufferedReader(new FileReader(CDR_FILE))) {
@@ -179,11 +230,11 @@ public class BrtHandler {
 //        cdrDataHandler(content.toString());
 //    }
 
-    private String callSinglePayAPI(String param) {
-        String url = HOST + PORT + SINGLE_PAY_PARAM + param;
-        return restTemplate.getForObject(url, String.class);
-    }
-
+    /**
+     * Метод для кодирования параметра URL-запроса
+     * @param params Передаваемый в URL параметр
+     * @return Закодированный URL параметр
+     */
     private static String encodeParams(String params) {
         String encodedParams = "";
         try {
@@ -194,6 +245,10 @@ public class BrtHandler {
         return encodedParams;
     }
 
+    /**
+     * Метод, выполняемый в пост-конструкторе, для занесения UNIX-time в "стек начала месяцев"
+     * @return Возвращает объект класса, в котором хранится стек
+     */
     private MonthStack fillStack() {
         MonthStack monthHolder = new MonthStack();
 
