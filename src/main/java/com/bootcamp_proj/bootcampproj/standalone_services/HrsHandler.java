@@ -45,7 +45,6 @@ public class HrsHandler {
     @Autowired
     private UserMinutesService userMinutesService;
 
-
     @GetMapping("/single-pay")
     @ResponseStatus(HttpStatus.OK)
     public String singlePay(@RequestParam String param) {

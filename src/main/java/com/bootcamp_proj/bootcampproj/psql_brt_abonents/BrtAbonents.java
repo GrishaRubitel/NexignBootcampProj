@@ -50,4 +50,8 @@ public class BrtAbonents {
             return null;
         }
     }
+
+    public void setTariff_id(String tariff_id) {
+        this.tariff_id = tariff_id;
+    }
 }

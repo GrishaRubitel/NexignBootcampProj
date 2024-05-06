@@ -1,21 +1,16 @@
 package com.bootcamp_proj.bootcampproj.standalone_services;
 import com.bootcamp_proj.bootcampproj.additional_classes.AbonentHolder;
 import com.bootcamp_proj.bootcampproj.additional_classes.ConcurentRecordHolder;
-import com.bootcamp_proj.bootcampproj.psql_brt_abonents.BrtAbonentsService;
 import com.bootcamp_proj.bootcampproj.psql_cdr_abonents.CdrAbonents;
 import com.bootcamp_proj.bootcampproj.psql_cdr_abonents.CdrAbonentsService;
 import com.bootcamp_proj.bootcampproj.psql_transactions.Transaction;
 import com.bootcamp_proj.bootcampproj.psql_transactions.TransactionService;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.kafka.annotation.TopicPartition;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.*;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
@@ -23,6 +18,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.logging.Logger;
 
 @Service
 @EnableAsync
@@ -35,9 +31,11 @@ public class CdrGenerator implements InitializingBean {
     private static final String TEMP_CDR_TXT = "./temp/CDR.txt";
     private static final String DATA_TOPIC = "data-topic";
     private static final int PART_ZERO_INT = 0;
-    private static Random random = new Random();
+
+    private static final Random random = new Random();
     private static LinkedList<AbonentHolder> abonents;
     private static ConcurentRecordHolder records;
+    private static final Logger logger = Logger.getLogger(CdrGenerator.class.getName());
 
     @Autowired
     private CdrAbonentsService cdrAbonentsService;
@@ -45,10 +43,7 @@ public class CdrGenerator implements InitializingBean {
     private TransactionService transactionService;
     @Autowired
     private KafkaTemplate<String, String> kafkaTemplate;
-
     private static CdrGenerator instance = null;
-    @Autowired
-    private BrtAbonentsService brtAbonentsService;
 
     @Override
     public void afterPropertiesSet() throws Exception {
@@ -58,22 +53,6 @@ public class CdrGenerator implements InitializingBean {
     public static CdrGenerator getInstance() {
         return instance;
     }
-
-    /*
-    @KafkaListener(topics = DATA_TOPIC, groupId = BOOTCAMP_PROJ_GROUP, topicPartitions = {
-            @TopicPartition(topic = TRIGGER_TOPIC, partitions = PART_ZERO)
-    })
-    private void consumeFromTriggerTopic(String message) {
-        System.out.println("CDR-T-P0 from START: " + message);
-        if (message.equals("cdr_start")) {
-            try {
-                switchEmulator();
-            } catch (IOException | InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        }
-    }
-    */
 
     private LinkedList<AbonentHolder> sqlSelectPhoneNumbers(int unixStart) {
         LinkedList<AbonentHolder> target = new LinkedList<>();
@@ -141,34 +120,23 @@ public class CdrGenerator implements InitializingBean {
             t2 = IN_CALL_TYPE_CODE;
         }
 
-        int lastCall = buildStandaloneRecord(t1, msisdn1.getMsisdn(), msisdn2.getMsisdn(), start, unixCurr);
+        buildStandaloneRecord(t1, msisdn1.getMsisdn(), msisdn2.getMsisdn(), start, unixCurr);
+        buildStandaloneRecord(t2, msisdn2.getMsisdn(), msisdn1.getMsisdn(), start, unixCurr);
 
-        checkLength();
-
-        if (brtAbonentsService.findInjection(msisdn2.getMsisdn())) {
-            buildStandaloneRecord(t2, msisdn2.getMsisdn(), msisdn1.getMsisdn(), start, unixCurr);
-        }
-
-        msisdn1.setUnixLastCall(lastCall);
-        msisdn2.setUnixLastCall(lastCall);
+        msisdn1.setUnixLastCall(unixCurr);
+        msisdn2.setUnixLastCall(unixCurr);
     }
 
-    private int buildStandaloneRecord(String type,
-                                       long m1,
-                                       long m2,
-                                       int start,
-                                       int end) {
+    private void buildStandaloneRecord(String type, long m1, long m2, int start, int end) {
 
         Transaction rec = new Transaction(m1, m2, type, start, end);
         transactionService.insertRecord(rec);
         records.add(rec.toString());
-        System.out.println("CDR: Добавлена новая запись " + records.getListLength() + "/10");
-
-        return rec.getUnixEnd();
+        logger.info("CDR: Добавлена новая запись " + records.getListLength() + "/10");
     }
 
     private void sendTransactionsData() throws IOException {
-        System.out.println("CDR: Достигнут предел");
+        logger.info("CDR: Достигнут предел");
 
         StringBuilder plainText = new StringBuilder();
 
