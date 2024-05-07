@@ -1,5 +1,9 @@
 package com.bootcamp_proj.bootcampproj.psql_tariffs_stats;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.ObjectCodec;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.JsonObject;
 import jakarta.persistence.*;
 
@@ -38,7 +42,23 @@ public class TariffStats {
         price_incoming_sms = 0;
         price_outcoming_sms = 0;
         other_info = "";
+    }
 
+    public TariffStats(String json) {
+        ObjectMapper objectMapper = new ObjectMapper();
+        JsonNode jsonNode = null;
+        try {
+            jsonNode = objectMapper.readTree(json);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+        this.tariff_id = jsonNode.get("tariff_id").asText();
+        this.tariff_name = jsonNode.get("tariff_name").asText();
+        this.num_of_minutes = jsonNode.get("num_of_minutes").asInt();
+        this.price_incoming_calls = jsonNode.get("price_incoming_calls").asDouble();
+        this.price_outcoming_calls = jsonNode.get("price_outcoming_calls").asDouble();
+        this.price_outcoming_calls_camo = jsonNode.get("price_outcoming_calls_camo").asDouble();
+        this.price_of_period = jsonNode.get("price_of_period").asDouble();
     }
 
     public TariffStats() {
@@ -70,5 +90,15 @@ public class TariffStats {
 
     public double getPrice_of_period() {
         return price_of_period;
+    }
+
+    public String toJson() {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            return mapper.writeValueAsString(this);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 }

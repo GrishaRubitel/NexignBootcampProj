@@ -46,6 +46,7 @@ public class BrtHandler {
     private static final String SINGLE_PAY_PARAM = "/api/hrs/single-pay?param=";
     private static final String MONTHLY_PAY_PARAM = "/api/hrs/monthly-pay?param=";
     private static final String UPDATE_TARIFF_PARAM = "/api/hrs/update-tariff?param=";
+    private static final String TARIFF_PARAM = "&tariffStats=";
     private static final String PORT = "8082";
     private static final String AUTHORIZED = "UserAuthorized";
     private static final String DENY = "AccessProhibited";
@@ -63,7 +64,7 @@ public class BrtHandler {
     public static final String SUCCESS = "Success";
 
     private static WeakHashMap<Long, BrtAbonents> brtAbonentsMap;
-    private static LinkedList<String> monthlyTariffs;
+    private static WeakHashMap<String, TariffStats> tariffStatsMap;
     private static MonthStack monthHolder;
     private static RestTemplate restTemplate = new RestTemplate();
     private static final Logger logger = Logger.getLogger(BrtHandler.class.getName());
@@ -71,7 +72,7 @@ public class BrtHandler {
     @PostConstruct
     private void initializeMaps() {
         brtAbonentsMap = selectAllAbonents();
-        monthlyTariffs = selectAllTariffs();
+        tariffStatsMap = selectAllTariffs();
     }
 
     /**
@@ -170,8 +171,7 @@ public class BrtHandler {
             if (ab.getTariffId().equals(tariffId)) {
                 return new ResponseEntity<>(ALREADY_SET, HttpStatus.BAD_REQUEST);
             }
-            //TODO
-            //1. Добавить обнулятель обоновлятель в HRS
+
             boolean checker = false;
             Iterable<TariffStats> tariffStatsIterator = tariffStatsService.getAllTariffStats();
 
@@ -185,7 +185,7 @@ public class BrtHandler {
                 return new ResponseEntity<>(TARIFF_NOT_FOUND, HttpStatus.BAD_REQUEST);
             }
 
-            String cheque = sendRestToHrs(ab.toJson(), MONTHLY_PAY_PARAM);
+            String cheque = sendRestToHrs(ab.toJson(), tariffStatsMap.get(ab.getTariffId()).toJson(), MONTHLY_PAY_PARAM);
             sendRestToHrs(ab.toJson(), UPDATE_TARIFF_PARAM);
             proceedPayment(cheque);
             ab.setTariff_id(tariffId);
@@ -254,7 +254,7 @@ public class BrtHandler {
                     temp.setTariffId(brtAbonentsMap.get(temp.getMsisdn()).getTariffId());
                     temp.setInNet(checkAbonent(temp.getMsisdnTo()));
 
-                    proceedPayment(sendRestToHrs(temp.toJson(), SINGLE_PAY_PARAM));
+                    proceedPayment(sendRestToHrs(temp.toJson(), tariffStatsMap.get(temp.getTariffId()).toJson(), SINGLE_PAY_PARAM));
                 }
             }
         } catch (IOException e) {
@@ -268,11 +268,19 @@ public class BrtHandler {
      * @param urlParam Вызываемый метод (ежемесячная плата или плата за отдельный звонок)
      * @return Возвращает номер абонента и количество средств для списания
      */
-    private String sendRestToHrs(String record, String urlParam) {
+    private String sendRestToHrs(String record, String tariff, String urlParam) {
+        String url = HOST + PORT + urlParam + encodeParams(record) + TARIFF_PARAM + encodeParams(tariff);
+        return initializeRequestToHrs(url);
+    }
+
+    private void sendRestToHrs(String record, String urlParam) {
         String url = HOST + PORT + urlParam + encodeParams(record);
-        String response;
+        initializeRequestToHrs(url);
+    }
+
+    private String initializeRequestToHrs(String url) {
         try {
-            response = restTemplate.getForObject(url, String.class);
+            String response = restTemplate.getForObject(url, String.class);
             logger.info("BRT API Callback: " + response);
             return response;
         } catch (Exception e) {
@@ -289,7 +297,7 @@ public class BrtHandler {
     private void checkMonthChangement(int timestamp) {
         if (monthHolder.checkTop(timestamp)) {
             for (BrtAbonents abonent : brtAbonentsMap.values()) {
-                if (monthlyTariffs.contains(abonent.getTariffId())) {
+                if (tariffStatsMap.containsKey(abonent.getTariffId()) && tariffStatsMap.get(abonent.getTariffId()).getPrice_of_period() != 0) {
                     sendRestToHrs(abonent.toJson(), MONTHLY_PAY_PARAM);
                 }
             }
@@ -351,16 +359,12 @@ public class BrtHandler {
     /**
      * Метод извлекает все тарифы из БД "ромашки"
      */
-    private LinkedList<String> selectAllTariffs(){
-        LinkedList<String> monthlyTariffs = new LinkedList<>();
-
+    private WeakHashMap<String, TariffStats> selectAllTariffs(){
+        WeakHashMap<String, TariffStats> map = new WeakHashMap<>();
         for (TariffStats elem : tariffStatsService.getAllTariffStats()) {
-            if (elem.getPrice_of_period() != 0) {
-                monthlyTariffs.add(elem.getTariff_id());
-            }
+            map.put(elem.getTariff_id(), elem);
         }
-
-        return monthlyTariffs;
+        return map;
     }
 
 //    /**

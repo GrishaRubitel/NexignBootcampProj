@@ -30,13 +30,9 @@ public class HrsHandler {
     private static final String IN_CALL_TYPE_CODE = "02";
     private static final int ZERO = 0;
     private static final String TARIFF_BY_DEFAULT = "11";
-    private WeakHashMap<String, TariffStats> tariffStats;
-    private Map<Long, UserMinutes> usersWithTariff = new HashMap<>();
 
-    @PostConstruct
-    private void initializeMap() {
-        tariffStats = uploadTariff();
-    }
+    private Map<Long, UserMinutes> usersWithTariff = new HashMap<>();
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
     BrtAbonentsService brtAbonentsService;
@@ -47,28 +43,28 @@ public class HrsHandler {
 
     @GetMapping("/single-pay")
     @ResponseStatus(HttpStatus.OK)
-    public String singlePay(@RequestParam String param) {
-        return tariffDispatch(decodeParam(param));
+    public String singlePay(@RequestParam String param, @RequestParam String tariffStats) {
+        return tariffDispatch(decodeParam(param), decodeParam(tariffStats));
     }
 
     @GetMapping("/monthly-pay")
     @ResponseStatus(HttpStatus.OK)
-    public String monthlyPay(@RequestParam String param) {
-        return payDay(decodeParam(param));
+    public String monthlyPay(@RequestParam String param, @RequestParam String tariffStats) {
+        return payDay(decodeParam(param), decodeParam(tariffStats));
     }
 
-    private String payDay(String param) {
+    private String payDay(String param, String tariffStats) {
         try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            JsonNode jsonNode = objectMapper.readTree(param);
-            long msisdn = jsonNode.get("msisdn").asLong();
-            String tariff = jsonNode.get("tariffId").asText();
+            JsonNode jsonNodeMsisdn = objectMapper.readTree(param);
+            long msisdn = jsonNodeMsisdn.get("msisdn").asLong();
+            String tariff = jsonNodeMsisdn.get("tariffId").asText();
+
+            JsonNode jsonNodeTariff = objectMapper.readTree(tariffStats);
+            double price = jsonNodeTariff.get("price_of_period").asDouble();
 
             UserMinutes tempUser = checkUserContainment(msisdn, tariff);
             tempUser.zeroAllMinutes();
             userMinutesService.saveUserMinutes(tempUser);
-
-            double price = tariffStats.get(tempUser.getTariff_id()).getPrice_of_period();
 
             HrsCallbackRecord hrsCallbackRecord = new HrsCallbackRecord(tempUser.getMsisdn(), price);
             return hrsCallbackRecord.toJson();
@@ -79,27 +75,28 @@ public class HrsHandler {
         return param;
     }
 
-    private String tariffDispatch(String message) {
+    private String tariffDispatch(String message, String tariffStat) {
         HrsTransaction record = new HrsTransaction(message);
-        if (tariffStats.get(record.getTariffId()).getPrice_of_period() == 0) {
-            return noMinutesTariff(record, record.getTariffId());
+        TariffStats usedTariff = new TariffStats(tariffStat);
+
+        if (usedTariff.getPrice_of_period() == 0) {
+            return noPriceTariff(record, record.getTariffId(), usedTariff);
         }
-        return withMinutesTariff(record);
+        return withPriceTariff(record, usedTariff);
     }
 
-    private String noMinutesTariff(HrsTransaction record, String tariff) {
+    private String noPriceTariff(HrsTransaction record, String tariff, TariffStats usedTariff) {
         double timeSpent = Math.ceil(record.getCallLength() / 60);
 
-        TariffStats tStats = tariffStats.get(tariff);
         double price;
 
         if (record.getCallId().equals(IN_CALL_TYPE_CODE)) {
-            price = tStats.getPrice_incoming_calls();
+            price = usedTariff.getPrice_incoming_calls();
         } else {
             if (record.getInNet()) {
-                price = tStats.getPrice_outcoming_calls_camo();
+                price = usedTariff.getPrice_outcoming_calls_camo();
             } else {
-                price = tStats.getPrice_outcoming_calls();
+                price = usedTariff.getPrice_outcoming_calls();
             }
         }
         double sum = timeSpent * price;
@@ -108,21 +105,19 @@ public class HrsHandler {
         return hrsCallbackRecord.toJson();
     }
 
-    private String withMinutesTariff(HrsTransaction record) {
+    private String withPriceTariff(HrsTransaction record, TariffStats usedTariff) {
         double timeSpent = Math.ceil(record.getCallLength() / 60);
-
-        TariffStats tStats = tariffStats.get(record.getTariffId());
 
         UserMinutes userMinutes = checkUserContainment(record.getMsisdn(), record.getTariffId());
 
         String returnVal;
 
-        if (userMinutes.getUsed_minutes_in() + timeSpent <= tStats.getNum_of_minutes()) {
+        if (userMinutes.getUsed_minutes_in() + timeSpent <= usedTariff.getNum_of_minutes()) {
             userMinutes.increaseMinutes((int) timeSpent);
             returnVal = new HrsCallbackRecord(record.getMsisdn(), 0).toJson();
         } else {
-            userMinutes.setAllMinutes(tStats.getNum_of_minutes());
-            returnVal = noMinutesTariff(record, TARIFF_BY_DEFAULT);
+            userMinutes.setAllMinutes(usedTariff.getNum_of_minutes());
+            returnVal = noPriceTariff(record, TARIFF_BY_DEFAULT, usedTariff);
         }
 
         userMinutesService.saveUserMinutes(userMinutes);
@@ -137,14 +132,6 @@ public class HrsHandler {
         } else {
             return usersWithTariff.get(msisdn);
         }
-    }
-
-    private WeakHashMap<String, TariffStats> uploadTariff() {
-        WeakHashMap<String, TariffStats> tS = new WeakHashMap();
-        for (TariffStats elem : tariffStatsService.getAllTariffStats()) {
-            tS.put(elem.getTariff_id(), elem);
-        }
-        return tS;
     }
 
     private static String decodeParam(String encodedString) {
