@@ -1,0 +1,212 @@
+openapi: '3.0.0'
+info: 
+  title: HRS API
+  description: Описание методов, обеспечивающих взаимодействие сервисов BRT и HRS. Сделана на Nexign Bootcamp для проекта Baby Billing.
+  version: '1.0.0'
+servers:
+  - url: "http://localhost:8082"
+tags:
+  - name: BRT
+    description: Взаимодействие сервиса
+paths:
+  /api/hrs/single-pay:
+    summary: Операции с оплатой звонка. 
+    description: Операции с оплатой звонка.
+    get:
+      tags:
+        - BRT
+      summary: Передать данные HRS о звонке абонента. 
+      description: >-
+        Передать данные HRS.
+          * Если тариф абонента не найден, должна быть возвращена ошибка.
+          * Если данные некорректны, должна быть возвращена ошибка. 
+      operationId: sendDataToHRSSingle
+      parameters:
+        - name: singlePay
+          in: query
+          description: Данные о транзакции абонента. 
+          schema:
+            $ref: '#/components/schemas/Transaction'
+          required: true
+      responses:
+          '200':
+            $ref: '#/components/responses/TransactionSuccess'
+          '400':
+            $ref: '#/components/responses/4xxResponse'
+          '500':
+            $ref: '#/components/responses/5xxResponse'
+          default: 
+            $ref: '#/components/responses/DefaultResponse'
+  /api/hrs/monthly-pay:
+    summary: Операции с оплатой за месяц.
+    description: Операции с оплатой за месяц.
+    get:
+      tags:
+        - BRT
+      summary: Передать данные HRS об абонентах с месячными тарифами. 
+      description: >-
+        Передача данных HRS.
+          * Если тариф абонента не найден, должна быть возвращена ошибка.
+          * Если данные некорректны, должна быть возвращена ошибка. 
+      operationId: sendDataToHRSMonthly
+      parameters:
+        - name: monthlyPay
+          in: query
+          description: Данные о звонке абонента и его тарифе
+          schema:
+            $ref: '#/components/schemas/AbonentTariff'
+          required: true
+      responses:
+          '200':
+            $ref: '#/components/responses/TransactionSuccess'
+          '4XX':
+            $ref: '#/components/responses/4xxResponse'
+          '5XX':
+            $ref: '#/components/responses/5xxResponse'
+          default: 
+            $ref: '#/components/responses/DefaultResponse'
+  /api/hrs/change-tariff:
+    summary: Операции со сменой тарифа.
+    description: Операции со сменой тарифа.
+    get:
+      tags:
+        - BRT
+      summary: Передать данные HRS об абоненте, его старом и новом тарифах.
+      description: >-
+        Передача данных HRS.
+          * Если тариф абонента не найден, должна быть возвращена ошибка.
+          * Если данные некорректны, должна быть возвращена ошибка. 
+      operationId: sendDataToHRS
+      parameters:
+        - name: changingTariffs
+          in: query
+          description: Данные о звонке абонента и его тарифе
+          schema:
+            $ref: '#/components/schemas/AbonentTariffOldNew'
+          required: true
+      responses:
+          '200':
+            $ref: '#/components/responses/TransactionSuccess'
+          '400':
+            $ref: '#/components/responses/4xxResponse'
+          '500':
+            $ref: '#/components/responses/5xxResponse'
+          default: 
+            $ref: '#/components/responses/DefaultResponse'
+components:
+  schemas:
+    AbonentTariff:
+      type: object
+      description: Номер абонента и его тариф
+      properties:
+        msisdn:
+          type: integer
+          format: int64
+          description: Телефонный номер абонента
+        tariffId:
+          type: integer
+          description: Уникальный идентификатор тарифа абонента
+      required:
+        - msisdn
+        - tariffId
+      example:
+        msisdn: 70987654321
+        tariffId: 12
+    AbonentMoney:
+      type: object
+      description: Номер абонента и его баланс
+      properties:
+        msisdn:
+          type: integer
+          format: int64
+          description: Телефонный номер абонента
+        money:
+          type: number
+          # format: float/double
+          description: Баланс абонента
+          default: 100
+      required:
+        - msisdn
+        - money
+      example:
+        msisdn: 70987654321
+        money: 82.8
+    AbonentTariffOldNew:
+      type: object
+      description: Номер абонента и его тариф
+      properties:
+        msisdn:
+          type: integer
+          format: int64
+          description: Телефонный номер абонента
+        tariffIdOld:
+          type: integer
+          description: Уникальный идентификатор тарифа абонента
+        tariffIdNew:
+          type: integer
+          description: Уникальный идентификатор тарифа абонента
+      required:
+        - msisdn
+        - tariffIdOld
+        - tariffIdNew
+      example:
+        msisdn: 70987654321
+        tariffIdOld: 12
+        tariffIdNew: 11
+    Transaction:
+      type: object
+      description: Данные о звонке абонента и его тарифе
+      properties:
+        call_id: 
+          type: string
+          description: Идентификатор типа звонка
+        msisdn:
+          type: integer
+          format: int64
+          description: Телефонный номер абонента
+        is_msisdn_to_cammomile_client:
+          type: boolean
+          description: Отображает, является ли абонент, с которым осуществлялась связь абонентом “Ромашки”
+        unix_start:
+          type: integer
+          format: int64
+          description: Дата и время начала звонка в формате Unix time. 
+        unix_end:
+          type: integer
+          format: int64
+          description: Дата и время окончания звонка в формате Unix time. 
+        tariffId:
+          type: integer
+          description: Уникальный идентификатор тарифа абонента
+      required:
+        - call_id
+        - msisdn
+        - is_msisdn_to_cammomile_client
+        - unix_start
+        - unix_end
+        - tariffId
+      example:
+        call_id: '01'
+        msisdn: 79996667755
+        is_msisdn_to_cammomile_client: false
+        unix_start: 1709899870
+        unix_end: 1709905806
+        tariffId: 12
+  responses:
+    4xxResponse:
+      description: Некорректные данные
+    5xxResponse: 
+      description: Ошибка сервера
+    DefaultResponse:
+      description: Успешное действие
+    TransactionSuccess:
+      description: Успешное действие
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AbonentMoney'
+
+
+
+    
+

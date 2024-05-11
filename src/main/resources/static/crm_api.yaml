@@ -1,0 +1,252 @@
+﻿openapi: '3.0.0'
+info: 
+  title: Ромашка API
+  description: API предоставляет доступ к данным абонентов "Ромашки". Сделана на Nexign Bootcamp для проекта Baby Billing.
+  version: '1.0.0'
+servers:
+  - url: "http://localhost:8082"
+tags:
+  - name: abonents
+    description: Операции, доступные абонентам
+  - name: manager
+    description: Операции, доступные менеджеру
+paths:
+  /abonents/list:
+    summary: Список всех абонентов ромашки
+    description: Операции с абонентами
+    get:
+      tags:
+        - manager
+      summary: Получить информацию обо всех абонентах
+      description: Получить информацию обо всех абонентах "Ромашки".
+      operationId: getAllAbonents
+      responses:
+        '200':
+          $ref: '#/components/responses/AbonentSuccess'
+        '400':
+          $ref: '#/components/responses/4xxResponse'
+        default: 
+          $ref: '#/components/responses/DefaultResponse'
+      security:
+        - adminRole: []
+  /abonents/list/{msisdn}:
+    summary: Конкретный абонент
+    description: Получение информации о конкретном абоненте
+    get:
+      tags:
+        - abonents
+        - manager
+      summary: Получить информацию о конкретном абоненте
+      description: >-
+        Получить информацию о конкретном абоненте "Ромашки".
+          * Если пользователь не найден, должна быть возвращена ошибка.
+      parameters:
+        - name: msisdn
+          in: path
+          description: Телефонный номер абонента
+          schema:
+            type: integer
+            format: int64
+          required: true
+      operationId: getAbonent
+      responses:
+        '200':
+          $ref: '#/components/responses/AbonentSuccess'
+        '400':
+          $ref: '#/components/responses/4xxResponse'
+        default: 
+          $ref: '#/components/responses/DefaultResponse'
+      security:
+        - adminRole: []
+        - abonentRole: []
+  /abonents/create/{msisdn}:
+    summary: Создание нового абонента
+    description: Создание нового абонента
+    post:
+      tags:
+        - manager
+      summary: Добавить нового абонента
+      description: >-
+        Добавление нового абонента.
+         * Если данные некорректны, должна быть возвращена ошибка.
+      operationId: save
+      parameters:
+        - name: msisdn
+          in: path
+          description: Телефонный номер абонента
+          schema:
+            type: integer
+            format: int64
+          required: true
+      requestBody:
+        description: Данные нового абонента
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Abonent'
+      responses:
+          '200':
+            $ref: '#/components/responses/AbonentSuccess'
+          '400':
+            $ref: '#/components/responses/4xxResponse'
+          '500':
+            $ref: '#/components/responses/5xxResponse'
+          default: 
+            $ref: '#/components/responses/DefaultResponse'
+      security:
+        - adminRole: []
+  /abonents/{msisdn}/pay:
+    summary: Изменения в балансе абоненте
+    description: Изменения в балансе абонента
+    put:
+      tags:
+        - abonents
+      summary: Пополнение баланса абонента
+      description: >-
+        Пополнение баланса абонента.
+         * Если пользователь не найден, должна быть возвращена ошибка.
+         * Если данные некорректны, должна быть возвращена ошибка.
+      operationId: pay
+      parameters:
+        - name: msisdn
+          in: path
+          description: Телефонный номер абонента
+          schema:
+            type: integer
+            format: int64
+          required: true
+          example: 70987654321
+        - name: money
+          in: query
+          description: Сумма пополнения
+          schema:
+            type: integer
+            format: int64
+          required: true
+          example: 1000
+      responses:
+          '200':
+            $ref: '#/components/responses/AbonentSuccess'
+          '400':
+            $ref: '#/components/responses/4xxResponse'
+          '500':
+            $ref: '#/components/responses/5xxResponse'
+          default: 
+            $ref: '#/components/responses/DefaultResponse'
+      security:
+        - abonentRole: []
+  /abonents/{msisdn}/changeTariff:
+    summary: Изменение данных абонента
+    description: Изменение данных абонента
+    put:
+      tags:
+        - manager
+      summary: Измененить тариф абонента
+      description:  >-
+        Изменение тарифа абонента.
+         * Если пользователь не найден, должна быть возвращена ошибка.
+         * Если данные некорректны, должна быть возвращена ошибка. 
+      operationId: changeTariff
+      parameters:
+        - name: msisdn
+          in: path
+          description: Телефонный номер абонента
+          schema:
+            type: integer
+            format: int64
+          required: true
+          example: 70987654321
+        - name: tariffId
+          in: query
+          description: Уникальный идентификатор тарифа
+          schema:
+            type: integer
+          required: true
+          example: 12
+      responses:
+          '200':
+            $ref: '#/components/responses/AbonentSuccess'
+          '400':
+            $ref: '#/components/responses/4xxResponse'
+          '500':
+            $ref: '#/components/responses/5xxResponse'
+          default: 
+            $ref: '#/components/responses/DefaultResponse'
+      security:
+        - adminRole: []
+components:
+  schemas:
+    Abonent:
+      type: object
+      description: Информация об абоненте "Ромашки"
+      properties:
+        msisdn:
+          type: integer
+          format: int64
+          description: Телефонный номер абонента
+        tariffId:
+          type: integer
+          description: Уникальный идентификатор тарифа абонента
+        money:
+          type: number
+          description: Баланс абонента
+          default: 100
+      required:
+        - msisdn
+      example:
+        msisdn: 70987654321
+        tariffId: 12
+        money: 82.8
+    AbonentMoney:
+      type: object
+      description: Номер абонента и его баланс
+      properties:
+        msisdn:
+          type: integer
+          format: int64
+          description: Телефонный номер абонента
+        money:
+          type: number
+          # format: float/double
+          description: Баланс абонента
+          default: 100
+      required:
+        - msisdn
+        - money
+      example:
+        msisdn: 70987654321
+        money: 82.8
+  responses:
+    AbonentSuccess: 
+      description: Успешный ответ
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Abonent'
+              - required:
+                  - tariffId
+                  - money
+    4xxResponse:
+      description: Некорректные данные.
+    5xxResponse: 
+      description: Сервис недоступен. Повторите позже. 
+    DefaultResponse:
+      description: Успешное действие.
+    TransactionSuccess:
+      description: Успешное действие.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AbonentMoney'
+  securitySchemes:
+    adminRole:
+      type: http
+      scheme: basic
+    abonentRole:
+      type: http
+      scheme: basic
+security:
+  - adminRole: []
+  - abonentRole: []

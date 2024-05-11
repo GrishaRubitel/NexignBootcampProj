@@ -136,16 +136,15 @@ public class CrmHandler {
         return badResponseHandler(response);
     }
 
-    public String[] extractBasicHeader(HttpHeaders headers) {
+    private static String[] extractBasicHeader(HttpHeaders headers) {
         if (headers.containsKey(HttpHeaders.AUTHORIZATION)) {
             String authHeader = headers.getFirst(HttpHeaders.AUTHORIZATION);
             if (authHeader.startsWith(BASIC)) {
-                String base64Credentials = authHeader.substring(BASIC.length());
-                return base64Credentials.split(COLON, 2);
+                String base64Credentials = authHeader.substring(BASIC.length()).trim();
+                String credentials = new String(Base64.getDecoder().decode(base64Credentials));
+                return credentials.split(COLON, 2);
             }
-        } else {
-            throw new IllegalArgumentException();
         }
-        return null;
+        throw new IllegalArgumentException("Authorization header is missing or not in Basic format");
     }
 }

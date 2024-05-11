@@ -25,6 +25,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Random;
 import java.util.logging.Logger;
+import java.util.Base64;
 
 @Service
 @EnableAsync
@@ -239,7 +240,8 @@ public class CdrGenerator implements InitializingBean {
 
     private ResponseEntity<String> sendRestToCrm(String url, String authParams, HttpMethod httpMethod) {
         HttpHeaders headers = new HttpHeaders();
-        headers.add(AUTH_HEADER, BASIC + authParams);
+        String encodedAuthParams = Base64.getEncoder().encodeToString(authParams.getBytes());
+        headers.add(AUTH_HEADER, BASIC + encodedAuthParams);
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
         return restTemplate.exchange(url, httpMethod, entity, String.class);
