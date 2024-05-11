@@ -213,7 +213,7 @@ public class CdrGenerator implements InitializingBean {
                 authParam = randNum + COLON;
                 break;
             case 2:
-                url = URL_START + URL_LIST + URL_BREAK + randNum + URL_PAY + random.nextInt(100, 1000);
+                url = URL_START + randNum + URL_PAY + random.nextInt(100, 1000);
                 method = HttpMethod.POST;
                 authParam = randNum + COLON;
                 break;

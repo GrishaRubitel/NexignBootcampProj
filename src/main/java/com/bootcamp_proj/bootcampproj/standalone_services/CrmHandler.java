@@ -1,11 +1,12 @@
 package com.bootcamp_proj.bootcampproj.standalone_services;
 
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import org.apache.kafka.common.protocol.types.Field;
 import org.springframework.http.*;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.Base64;
 import java.util.logging.Logger;
@@ -18,7 +19,7 @@ public class CrmHandler {
     private static final String STARTER_URL = "http://localhost:8082/api/brt";
     private static final String LIST_URL = "/list";
     private static final String PAY_URL = "/pay";
-    private static final String TARIFF_CHANGER_URL = "/change-tariff";
+    private static final String TARIFF_CHANGER_URL = "/changeTariff";
     private static final String CREATE_URL = "/create";
     private static final String URL_BREAK = "/";
     private static final String COLON = ":";
@@ -29,9 +30,10 @@ public class CrmHandler {
     private static final String AUTH_HEADER = "Authorization";
     private static final String BASIC = "Basic ";
     private static final String VALUE_PARAM = "?value=";
+    private static final String MONEY_PARAM = "?money=";
     private static final String CHECK_CONTAINMENT = "/check-containment";
     private static final String MSISDN_PARAM = "?msisdn=";
-    private static final String TARIFF_PARAM = "?tariff-id=";
+    private static final String TARIFF_PARAM = "?tariffId=";
     private static final RestTemplate restTemplate = new RestTemplate();
     private static final Logger logger = Logger.getLogger(CrmHandler.class.getName());
 
@@ -56,12 +58,12 @@ public class CrmHandler {
         }
     }
 
-    @PutMapping("/list/{msisdn}/pay")
+    @PutMapping("/{msisdn}/pay")
     private ResponseEntity<String> abonentProceedPayment(@PathVariable String msisdn,
                                                          @RequestParam("money") String value,
                                                          @RequestHeader(AUTH_HEADER) HttpHeaders head) {
         if (checkAbonentInBrt(head)) {
-            String url = STARTER_URL + LIST_URL + URL_BREAK + msisdn + PAY_URL + VALUE_PARAM + value;
+            String url = STARTER_URL + URL_BREAK + msisdn + PAY_URL + MONEY_PARAM + value;
             return sendRequestToBrt(url, HttpMethod.POST);
         } else {
             return new ResponseEntity<>(DENY, HttpStatus.UNAUTHORIZED);
@@ -70,20 +72,19 @@ public class CrmHandler {
 
     @PostMapping("/create/{msisdn}")
     private ResponseEntity<String> managerCreateNewAbonent(@PathVariable String msisdn,
-                                                           @RequestParam("tariff-id") String tariffId,
-                                                           @RequestBody RequestBody body,
+                                                           @RequestBody String body,
                                                            @RequestHeader(AUTH_HEADER) HttpHeaders head) {
         if (checkAdminAuthorization(head)) {
-            String url = STARTER_URL + CREATE_URL + URL_BREAK + msisdn + TARIFF_PARAM + tariffId;
+            String url = STARTER_URL + CREATE_URL + URL_BREAK + msisdn;
             return sendRequestToBrt(url, HttpMethod.POST, body);
         } else {
             return new ResponseEntity<>(DENY, HttpStatus.UNAUTHORIZED);
         }
     }
 
-    @PutMapping("/{msisdn}/change-tariff")
+    @PutMapping("/{msisdn}/changeTariff")
     private ResponseEntity<String> managerUpdateAbonentTariff(@PathVariable String msisdn,
-                                                              @RequestParam("tariff-id") String tariffId,
+                                                              @RequestParam("tariffId") String tariffId,
                                                               @RequestHeader(AUTH_HEADER) HttpHeaders head) {
         if (checkAdminAuthorization(head)) {
             String url = STARTER_URL + URL_BREAK + msisdn + TARIFF_CHANGER_URL + TARIFF_PARAM + tariffId;
@@ -96,8 +97,8 @@ public class CrmHandler {
     private ResponseEntity<String> badResponseHandler(ResponseEntity<String> entity) {
         if (entity.getStatusCode().equals(HttpStatus.BAD_REQUEST)) {
             return new ResponseEntity<>("Incorrect Request", HttpStatus.BAD_REQUEST);
-        } else if (entity.getStatusCode().equals(HttpStatus.REQUEST_TIMEOUT)) {
-            return new ResponseEntity<>("Service unavailable. Try Again Later", HttpStatus.BAD_REQUEST);
+        } else if (entity.getStatusCode().equals(HttpStatus.BAD_GATEWAY)) {
+            return new ResponseEntity<>("Service unavailable. Try Again Later", HttpStatus.BAD_GATEWAY);
         } else {
             return entity;
         }
@@ -109,7 +110,7 @@ public class CrmHandler {
     }
 
     private boolean checkAbonentInBrt(HttpHeaders header) {
-        String url = STARTER_URL + URL_BREAK + CHECK_CONTAINMENT + MSISDN_PARAM + extractBasicHeader(header)[0];
+        String url = STARTER_URL + CHECK_CONTAINMENT + MSISDN_PARAM + extractBasicHeader(header)[0];
         ResponseEntity<String> resp = sendRequestToBrt(url, HttpMethod.GET);
         return resp.getStatusCode().equals(HttpStatus.OK);
     }
@@ -119,21 +120,27 @@ public class CrmHandler {
         headers.add(CUSTOM_HEADER, CRM_SIGNATURE);
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
-        ResponseEntity<String> response = restTemplate.exchange(url, httpMethod, entity, String.class);
-        logger.info("CRM Response From BRT: " + response.getBody());
-
-        return badResponseHandler(response);
+        return finalSendToBrt(url, httpMethod, entity);
     }
 
-    private ResponseEntity<String> sendRequestToBrt(String url, HttpMethod httpMethod, RequestBody body) {
+    private ResponseEntity<String> sendRequestToBrt(String url, HttpMethod httpMethod, String body) {
         HttpHeaders headers = new HttpHeaders();
         headers.add(CUSTOM_HEADER, CRM_SIGNATURE);
         HttpEntity<String> entity = new HttpEntity<>(body.toString(), headers);
 
-        ResponseEntity<String> response = restTemplate.exchange(url, httpMethod, entity, String.class);
-        logger.info("CRM Response From BRT: " + response.getBody());
+        return finalSendToBrt(url, httpMethod, entity);
+    }
 
-        return badResponseHandler(response);
+    private ResponseEntity<String> finalSendToBrt(String url, HttpMethod method, HttpEntity<String> entity) {
+        ResponseEntity<String> response;
+        try {
+            response = restTemplate.exchange(url, method, entity, String.class);
+            logger.info("CRM Response From BRT: " + response.getBody());
+            return badResponseHandler(response);
+        } catch(Exception e) {
+            logger.warning(e.getMessage());
+            return new ResponseEntity<>("Service unavailable. Try Again Later", HttpStatus.BAD_REQUEST);
+        }
     }
 
     private static String[] extractBasicHeader(HttpHeaders headers) {

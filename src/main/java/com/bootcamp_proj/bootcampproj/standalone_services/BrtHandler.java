@@ -9,7 +9,6 @@ import com.bootcamp_proj.bootcampproj.psql_tariffs_stats.TariffStatsService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
@@ -136,7 +135,7 @@ public class BrtHandler {
      * @param head Заголовок с сигнатуорй источника
      * @return Ответ с информаицей об абоненте или с информацией об ошибке
      */
-    @PostMapping("/list/{msisdn}/pay")
+    @PostMapping("/{msisdn}/pay")
     private ResponseEntity<String> proceedAbonentPayment(@PathVariable String msisdn, @RequestParam("money") String value, @RequestHeader(CUSTOM_HEADER) String head) {
         if (!checkSignature(head)) {
             return new ResponseEntity<>(DENY, HttpStatus.UNAUTHORIZED);
@@ -175,10 +174,10 @@ public class BrtHandler {
             try {
                 jsonNode = objectMapper.readTree(body);
             } catch (JsonProcessingException e) {
-                throw new RuntimeException(e);
+                return new ResponseEntity<>(BAD_REQUEST, HttpStatus.BAD_REQUEST);
             }
             double money = jsonNode.get("money").asDouble();
-            String tariffId = jsonNode.get("tariff-id").asText();
+            String tariffId = jsonNode.get("tariffId").asText();
 
             if (money == 0) {
                 money = 100;
@@ -193,7 +192,7 @@ public class BrtHandler {
                     BrtAbonents rookie = new BrtAbonents(num, tariffId, money);
                     brtAbonentsMap.put(rookie.getMsisdn(), rookie);
                     brtAbonentsService.commitUserTransaction(rookie);
-                    return new ResponseEntity<>(SUCCESS + "\n" + rookie.toJson(), HttpStatus.OK);
+                    return new ResponseEntity<>(rookie.toJson(), HttpStatus.OK);
                 }
                 return new ResponseEntity<>(ALREADY_REGISTRED, HttpStatus.BAD_REQUEST);
             }
@@ -210,7 +209,7 @@ public class BrtHandler {
      */
     @PutMapping("/{msisdn}/changeTariff")
     private ResponseEntity<String> managerUpdateAbonentTariff(@PathVariable String msisdn,
-                                                              @RequestParam("tariff-id") String tariffId,
+                                                              @RequestParam("tariffId") String tariffId,
                                                               @RequestHeader(CUSTOM_HEADER) String head) {
         if (!checkSignature(head)) {
             return new ResponseEntity<>(DENY, HttpStatus.UNAUTHORIZED);
