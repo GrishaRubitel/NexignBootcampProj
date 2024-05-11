@@ -68,8 +68,8 @@ INSERT INTO cdr_abonents (msisdn) VALUES(75326984736);
 INSERT INTO cdr_abonents (msisdn) VALUES(76168793160);
 INSERT INTO cdr_abonents (msisdn) VALUES(79298674093);
 
-INSERT INTO tariffs (tariff_id, tariff_name, num_of_minutes, price_incoming_calls, price_outcoming_calls, price_outcoming_calls_camo, price_of_period, internet_traffic, internet_max_speed, num_of_incoming_sms, num_of_outcoming_sms, price_incoming_sms, price_outcoming_sms, other_info) VALUES('11', 'Classic', 0, 0, 1.5, 2.5, 0, 0, 0, 0, 0, 0, 0, 0);
-INSERT INTO tariffs (tariff_id, tariff_name, num_of_minutes, price_incoming_calls, price_outcoming_calls, price_outcoming_calls_camo, price_of_period, internet_traffic, internet_max_speed, num_of_incoming_sms, num_of_outcoming_sms, price_incoming_sms, price_outcoming_sms, other_info) VALUES('12', 'Monthly', 50, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0);
+INSERT INTO tariffs (tariff_id, tariff_name, num_of_minutes, price_incoming_calls, price_outcoming_calls, price_outcoming_calls_camo, price_of_period, internet_traffic, internet_max_speed, num_of_incoming_sms, num_of_outcoming_sms, price_incoming_sms, price_outcoming_sms, other_info) VALUES('11', 'Classic', 0, 0, 1.5, 2.5, 0, 0, 0, 0, 0, 0, 0, '{}');
+INSERT INTO tariffs (tariff_id, tariff_name, num_of_minutes, price_incoming_calls, price_outcoming_calls, price_outcoming_calls_camo, price_of_period, internet_traffic, internet_max_speed, num_of_incoming_sms, num_of_outcoming_sms, price_incoming_sms, price_outcoming_sms, other_info) VALUES('12', 'Monthly', 50, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, '{}');
 
 INSERT INTO users (msisdn, tariff_id, money_balance) VALUES(7968969935, '11', 200);
 INSERT INTO users (msisdn, tariff_id, money_balance) VALUES(74571938267, '11', 100);

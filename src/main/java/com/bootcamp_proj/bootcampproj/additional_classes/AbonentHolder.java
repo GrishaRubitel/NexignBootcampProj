@@ -1,5 +1,8 @@
 package com.bootcamp_proj.bootcampproj.additional_classes;
 
+/**
+ * Класс для генерации непересекающихся звонков одного отдельного абонента
+ */
 public class AbonentHolder {
     long msisdn;
     int unixLastCall;

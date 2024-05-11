@@ -6,6 +6,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 
+/**
+ * ORM сервис для выполнения запросов к таблице "tariffs" базы данных генератора звонков
+ */
 @Service
 public class TariffStatsService {
     @Autowired

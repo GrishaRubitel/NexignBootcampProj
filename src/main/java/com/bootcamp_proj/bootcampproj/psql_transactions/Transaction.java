@@ -1,6 +1,9 @@
 package com.bootcamp_proj.bootcampproj.psql_transactions;
 import jakarta.persistence.*;
 
+/**
+ * ORM сущность для работы с таблицей "transactions" базы данных генератора звонков
+ */
 @Entity
 @Table(name="transactions")
 public class Transaction {

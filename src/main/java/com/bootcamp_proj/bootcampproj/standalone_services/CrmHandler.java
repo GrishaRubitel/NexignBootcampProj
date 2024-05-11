@@ -1,13 +1,13 @@
 package com.bootcamp_proj.bootcampproj.standalone_services;
 
-import jakarta.websocket.server.PathParam;
-import org.apache.tomcat.util.codec.binary.Base64;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import org.springframework.http.*;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.Base64;
 import java.util.logging.Logger;
 
 @Service
@@ -25,86 +25,93 @@ public class CrmHandler {
     private static final String DENY = "AccessProhibited";
     private static final String CUSTOM_HEADER = "Custom-Header";
     private static final String CRM_SIGNATURE = "CRM-Signature";
-    private static final String ADMIN = "admin:admin";
+    private static final String ADMIN = "admin";
     private static final String AUTH_HEADER = "Authorization";
     private static final String BASIC = "Basic ";
     private static final String VALUE_PARAM = "?value=";
     private static final String CHECK_CONTAINMENT = "/check-containment";
     private static final String MSISDN_PARAM = "?msisdn=";
     private static final String TARIFF_PARAM = "?tariff-id=";
-
     private static final RestTemplate restTemplate = new RestTemplate();
     private static final Logger logger = Logger.getLogger(CrmHandler.class.getName());
 
     @GetMapping("/list/{msisdn}")
     private ResponseEntity<String> getAbonentInfo(@PathVariable String msisdn,
-                                                  @RequestHeader(AUTH_HEADER) String head) {
+                                                  @RequestHeader(AUTH_HEADER) HttpHeaders head) {
         if (checkAdminAuthorization(head) || checkAbonentInBrt(head)) {
             String url = STARTER_URL + LIST_URL + URL_BREAK + msisdn;
             return sendRequestToBrt(url, HttpMethod.GET);
+        } else {
+            return new ResponseEntity<>(DENY, HttpStatus.UNAUTHORIZED);
         }
-        return new ResponseEntity<>(DENY, HttpStatus.UNAUTHORIZED);
     }
 
     @GetMapping("/list")
-    private ResponseEntity<String> getAllAbonentsInfo(@RequestHeader(AUTH_HEADER) String head) {
+    private ResponseEntity<String> getAllAbonentsInfo(@RequestHeader(AUTH_HEADER) HttpHeaders head) {
         if (checkAdminAuthorization(head)) {
             String url = STARTER_URL + LIST_URL;
             return sendRequestToBrt(url, HttpMethod.GET);
+        } else {
+            return new ResponseEntity<>(DENY, HttpStatus.UNAUTHORIZED);
         }
-        return new ResponseEntity<>(DENY, HttpStatus.UNAUTHORIZED);
     }
 
-    @PostMapping("/list/{msisdn}/pay")
+    @PutMapping("/list/{msisdn}/pay")
     private ResponseEntity<String> abonentProceedPayment(@PathVariable String msisdn,
-                                                         @RequestParam("value") String value,
-                                                         @RequestHeader(AUTH_HEADER) String head) {
+                                                         @RequestParam("money") String value,
+                                                         @RequestHeader(AUTH_HEADER) HttpHeaders head) {
         if (checkAbonentInBrt(head)) {
             String url = STARTER_URL + LIST_URL + URL_BREAK + msisdn + PAY_URL + VALUE_PARAM + value;
             return sendRequestToBrt(url, HttpMethod.POST);
+        } else {
+            return new ResponseEntity<>(DENY, HttpStatus.UNAUTHORIZED);
         }
-        return new ResponseEntity<>(DENY, HttpStatus.UNAUTHORIZED);
     }
 
     @PostMapping("/create/{msisdn}")
     private ResponseEntity<String> managerCreateNewAbonent(@PathVariable String msisdn,
                                                            @RequestParam("tariff-id") String tariffId,
-                                                           @RequestHeader(AUTH_HEADER) String head) {
+                                                           @RequestBody RequestBody body,
+                                                           @RequestHeader(AUTH_HEADER) HttpHeaders head) {
         if (checkAdminAuthorization(head)) {
             String url = STARTER_URL + CREATE_URL + URL_BREAK + msisdn + TARIFF_PARAM + tariffId;
-            return sendRequestToBrt(url, HttpMethod.POST);
+            return sendRequestToBrt(url, HttpMethod.POST, body);
+        } else {
+            return new ResponseEntity<>(DENY, HttpStatus.UNAUTHORIZED);
         }
-        return new ResponseEntity<>(DENY, HttpStatus.UNAUTHORIZED);
     }
 
-    @PostMapping("/{msisdn}/change-tariff")
+    @PutMapping("/{msisdn}/change-tariff")
     private ResponseEntity<String> managerUpdateAbonentTariff(@PathVariable String msisdn,
                                                               @RequestParam("tariff-id") String tariffId,
-                                                              @RequestHeader(AUTH_HEADER) String head) {
+                                                              @RequestHeader(AUTH_HEADER) HttpHeaders head) {
         if (checkAdminAuthorization(head)) {
             String url = STARTER_URL + URL_BREAK + msisdn + TARIFF_CHANGER_URL + TARIFF_PARAM + tariffId;
             return sendRequestToBrt(url, HttpMethod.POST);
-        }
-        return new ResponseEntity<>(DENY, HttpStatus.UNAUTHORIZED);
-    }
-
-    private boolean checkAdminAuthorization(String auth) {
-        //auth = decodeFromAuthHeader(auth);
-        if (auth.equals(ADMIN)) {
-            return true;
         } else {
-            return false;
+            return new ResponseEntity<>(DENY, HttpStatus.UNAUTHORIZED);
         }
     }
 
-    private boolean checkAbonentInBrt(String msisdn) {
-        //msisdn = decodeFromAuthHeader(msisdn);
-        String url = STARTER_URL + URL_BREAK + CHECK_CONTAINMENT + MSISDN_PARAM + extractSubstring(msisdn);
-        ResponseEntity<String> resp = sendRequestToBrt(url, HttpMethod.GET);
-        if (resp.getStatusCode().equals(HttpStatus.OK)) {
-            return true;
+    private ResponseEntity<String> badResponseHandler(ResponseEntity<String> entity) {
+        if (entity.getStatusCode().equals(HttpStatus.BAD_REQUEST)) {
+            return new ResponseEntity<>("Incorrect Request", HttpStatus.BAD_REQUEST);
+        } else if (entity.getStatusCode().equals(HttpStatus.REQUEST_TIMEOUT)) {
+            return new ResponseEntity<>("Service unavailable. Try Again Later", HttpStatus.BAD_REQUEST);
+        } else {
+            return entity;
         }
-        return false;
+    }
+
+    private boolean checkAdminAuthorization(HttpHeaders auth) {
+        String[] arr = extractBasicHeader(auth);
+        return arr[0].equals(ADMIN) && arr[1].equals(ADMIN);
+    }
+
+    private boolean checkAbonentInBrt(HttpHeaders header) {
+        String url = STARTER_URL + URL_BREAK + CHECK_CONTAINMENT + MSISDN_PARAM + extractBasicHeader(header)[0];
+        ResponseEntity<String> resp = sendRequestToBrt(url, HttpMethod.GET);
+        return resp.getStatusCode().equals(HttpStatus.OK);
     }
 
     private ResponseEntity<String> sendRequestToBrt(String url, HttpMethod httpMethod) {
@@ -113,35 +120,32 @@ public class CrmHandler {
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
         ResponseEntity<String> response = restTemplate.exchange(url, httpMethod, entity, String.class);
-        logger.info("Response: " + response.getBody());
+        logger.info("CRM Response From BRT: " + response.getBody());
 
-        return new ResponseEntity<>(response.getBody(), headers, HttpStatus.OK);
+        return badResponseHandler(response);
     }
 
-    private String decodeFromAuthHeader(String in) {
-        if (in != null && in.startsWith(BASIC)) {
-            in = in.substring(BASIC.length());
-        }
+    private ResponseEntity<String> sendRequestToBrt(String url, HttpMethod httpMethod, RequestBody body) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(CUSTOM_HEADER, CRM_SIGNATURE);
+        HttpEntity<String> entity = new HttpEntity<>(body.toString(), headers);
 
-        byte[] bytes;
-        try {
-            bytes = Base64.decodeBase64(in);
-        } catch (Exception e) {
-            bytes = new byte[0];
-        }
-        return new String(bytes);
+        ResponseEntity<String> response = restTemplate.exchange(url, httpMethod, entity, String.class);
+        logger.info("CRM Response From BRT: " + response.getBody());
+
+        return badResponseHandler(response);
     }
 
-    public static String extractSubstring(String input) {
-        if (input == null || input.isEmpty()) {
-            return null;
-        }
-
-        int index = input.indexOf(COLON);
-        if (index != -1) {
-            return input.substring(0, index);
+    public String[] extractBasicHeader(HttpHeaders headers) {
+        if (headers.containsKey(HttpHeaders.AUTHORIZATION)) {
+            String authHeader = headers.getFirst(HttpHeaders.AUTHORIZATION);
+            if (authHeader.startsWith(BASIC)) {
+                String base64Credentials = authHeader.substring(BASIC.length());
+                return base64Credentials.split(COLON, 2);
+            }
         } else {
-            return input;
+            throw new IllegalArgumentException();
         }
+        return null;
     }
 }

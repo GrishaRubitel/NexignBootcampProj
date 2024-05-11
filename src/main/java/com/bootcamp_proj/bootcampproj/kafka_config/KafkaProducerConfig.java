@@ -14,6 +14,9 @@ import org.springframework.kafka.support.serializer.StringOrBytesSerializer;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Конфиг для кафки
+ */
 @Configuration
 public class KafkaProducerConfig {
 

@@ -3,6 +3,9 @@ package com.bootcamp_proj.bootcampproj.psql_tariffs_stats;
 import com.google.gson.JsonObject;
 import jakarta.persistence.*;
 
+/**
+ * ORM сервис для выполнения запросов к таблице "tariffs" базы данных оператора "Ромашки"
+ */
 @Entity
 @Table(name = "tariffs")
 public class TariffStats {

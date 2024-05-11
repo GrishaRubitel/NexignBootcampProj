@@ -5,22 +5,28 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 
+/**
+ * Наследник класс для обработки записей из CDR файла.
+ * Расширен полями и методами, необходимыми для работы внутри HRS
+ */
 public class HrsTransaction extends BrtTransaction {
 
-    public HrsTransaction(String json) {
+    public HrsTransaction(String json) throws Exception {
         try {
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode jsonNode = objectMapper.readTree(json);
-            this.transactionId = jsonNode.get("transactionId").asInt();
             this.msisdn = jsonNode.get("msisdn").asLong();
-            this.msisdnTo = jsonNode.get("msisdnTo").asLong();
-            this.callId = jsonNode.get("callId").asText();
-            this.unixStart = jsonNode.get("unixStart").asInt();
-            this.unixEnd = jsonNode.get("unixEnd").asInt();
-            this.tariffId = jsonNode.get("tariffId").asText();
-            this.inNet = jsonNode.get("inNet").asBoolean();
+            this.callId = jsonNode.get("call_id").asText();
+            this.unixStart = jsonNode.get("unix_start").asInt();
+            this.unixEnd = jsonNode.get("unix_end").asInt();
+            this.tariffId = jsonNode.get("tariff_id").asText();
+            this.inNet = jsonNode.get("is_msisdn_to_camomile_client").asBoolean();
         } catch (IOException e) {
-            e.printStackTrace();
+            throw new Exception();
         }
+    }
+
+    public int getCallLength() {
+        return unixEnd - unixStart;
     }
 }

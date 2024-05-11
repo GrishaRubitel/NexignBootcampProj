@@ -4,6 +4,10 @@ import java.util.LinkedList;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+/**
+ * Класс с хранилищем записей из CDR файла с конкурентым доступом. Нужен для корректной работы с параллельными
+ * потоками (избавляемся от гонки)
+ */
 public class ConcurentRecordHolder {
     private LinkedList<String> recordHolder;
     private Lock lock;

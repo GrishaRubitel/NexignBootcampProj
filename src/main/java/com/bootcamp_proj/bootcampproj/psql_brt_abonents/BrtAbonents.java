@@ -5,6 +5,9 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+/**
+ * ORM сущность для работы с таблицей "users" базы данных оператора "Ромашки"
+ */
 @Entity
 @Table(name = "users")
 public class BrtAbonents {

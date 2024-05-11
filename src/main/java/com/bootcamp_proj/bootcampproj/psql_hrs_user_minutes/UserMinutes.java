@@ -4,6 +4,9 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+/**
+ * ORM сущность для работы с таблицей "users_minutes" базы данных оператора "Ромашки"
+ */
 @Entity
 @Table(name="users_minutes")
 public class UserMinutes {
@@ -64,5 +67,9 @@ public class UserMinutes {
 
     public int getUsed_minutes_out() {
         return used_minutes_out;
+    }
+
+    public void setTariff_id(String tariff_id) {
+        this.tariff_id = tariff_id;
     }
 }

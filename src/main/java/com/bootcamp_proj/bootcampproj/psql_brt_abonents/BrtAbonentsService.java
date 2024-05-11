@@ -5,6 +5,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 
+/**
+ * ORM сервис для выполнения запросов к таблице "users" базы данных оператора "Ромашки"
+ */
 @Service
 public class BrtAbonentsService {
     @Autowired

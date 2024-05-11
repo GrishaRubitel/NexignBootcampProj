@@ -1,4 +1,5 @@
 package com.bootcamp_proj.bootcampproj.standalone_services;
+
 import com.bootcamp_proj.bootcampproj.additional_classes.AbonentHolder;
 import com.bootcamp_proj.bootcampproj.additional_classes.ConcurentRecordHolder;
 import com.bootcamp_proj.bootcampproj.psql_cdr_abonents.CdrAbonents;
@@ -7,17 +8,22 @@ import com.bootcamp_proj.bootcampproj.psql_transactions.Transaction;
 import com.bootcamp_proj.bootcampproj.psql_transactions.TransactionService;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
-import java.io.BufferedWriter;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.*;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.Random;
 import java.util.logging.Logger;
 
 @Service
@@ -27,15 +33,31 @@ public class CdrGenerator implements InitializingBean {
     private static final String IN_CALL_TYPE_CODE = "02";
     private static final int DELAY = 300;
     private static final double CALL_CHANCE = 0.7;
+    private static final double CRM_CHANCE = 0.07;
     private static final double CALL_CHANCE_EQUATOR = 1 - (1 - CALL_CHANCE) / 2;
     private static final String TEMP_CDR_TXT = "./temp/CDR.txt";
+    private static final String CDR_ABONENTS_TXT = "./temp/CrmAbonents.txt";
     private static final String DATA_TOPIC = "data-topic";
     private static final int PART_ZERO_INT = 0;
+    private static final String URL_START = "http://localhost:8082/abonents/";
+    private static final String URL_PAY = "/pay?value=";
+    private static final String URL_LIST = "list";
+    private static final String CREATE_URL = "create/";
+    private static final String TARIFF_ID_URL = "?tariff-id=";
+    private static final String CHANGE_TARIFF_URL = "/change-tariff";
+    private static final String URL_BREAK = "/";
+    private static final String AUTH_HEADER = "Authorization";
+    private static final String COLON = ":";
+    private static final String DEFAULT_AUTH = "admin:admin";
+    public static final String BASIC = "Basic ";
+    private static int aFCMarker = 10;
 
-    private static final Random random = new Random();
     private static LinkedList<AbonentHolder> abonents;
+    private static LinkedList<String> abonentsForCrm;
     private static ConcurentRecordHolder records;
     private static final Logger logger = Logger.getLogger(CdrGenerator.class.getName());
+    private static final RestTemplate restTemplate = new RestTemplate();
+    private static final Random random = new Random();
 
     @Autowired
     private CdrAbonentsService cdrAbonentsService;
@@ -54,12 +76,21 @@ public class CdrGenerator implements InitializingBean {
         return instance;
     }
 
-    private LinkedList<AbonentHolder> sqlSelectPhoneNumbers(int unixStart) {
-        LinkedList<AbonentHolder> target = new LinkedList<>();
+    private void sqlSelectPhoneNumbers(int unixStart) {
+        abonents = new LinkedList<>();
         Iterator<CdrAbonents> source = cdrAbonentsService.findAll().iterator();
-        source.forEachRemaining((i) -> target.add(new AbonentHolder(i.getMsisdn(), unixStart - 10)));
+        source.forEachRemaining((i) -> abonents.add(new AbonentHolder(i.getMsisdn(), unixStart - 10)));
 
-        return target;
+        abonentsForCrm = new LinkedList<>();
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(CDR_ABONENTS_TXT))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                abonentsForCrm.add(line);
+            }
+        } catch (IOException e) {
+            logger.warning(e.getMessage());
+        }
     }
 
     public void switchEmulator() throws InterruptedException, IOException {
@@ -68,14 +99,13 @@ public class CdrGenerator implements InitializingBean {
 
         transactionService.trunkTable();
 
-        abonents = sqlSelectPhoneNumbers(unixStart);
-        records = new ConcurentRecordHolder();
+        sqlSelectPhoneNumbers(unixStart);
 
-        double dur;
+        records = new ConcurentRecordHolder();
 
         while (unixStart <= unixFinish) {
             Thread.sleep(DELAY);
-            dur = random.nextDouble();
+            double dur = random.nextDouble();
             if (dur  >= CALL_CHANCE) {
                 shuffle();
                 if (dur < CALL_CHANCE_EQUATOR) {
@@ -84,6 +114,8 @@ public class CdrGenerator implements InitializingBean {
                     generateCallRecord(unixStart, abonents.get(0), abonents.get(1));
                     generateCallRecord(unixStart, abonents.get(2), abonents.get(3));
                 }
+            } else if (dur <= CRM_CHANCE) {
+                //generateCrmOperation();
             }
 
             checkLength();
@@ -102,7 +134,7 @@ public class CdrGenerator implements InitializingBean {
     }
 
     @Async
-    public void generateCallRecord(int unixCurr,
+    protected void generateCallRecord(int unixCurr,
                                    AbonentHolder msisdn1,
                                    AbonentHolder msisdn2) throws IOException, InterruptedException {
 
@@ -160,5 +192,56 @@ public class CdrGenerator implements InitializingBean {
             sendTransactionsData();
             records.clear();
         }
+    }
+
+    @Async
+    protected void generateCrmOperation() {
+        int dur = random.nextInt(0, 4);
+        String url;
+        String randNum = abonentsForCrm.get(random.nextInt(10));
+
+        HttpMethod method = HttpMethod.GET;
+        String authParam = DEFAULT_AUTH;
+
+        switch (dur) {
+            case 0:
+                url = URL_START + URL_LIST;
+                break;
+            case 1:
+                url = URL_START + URL_LIST + URL_BREAK + randNum;
+                authParam = randNum + COLON;
+                break;
+            case 2:
+                url = URL_START + URL_LIST + URL_BREAK + randNum + URL_PAY + random.nextInt(100, 1000);
+                method = HttpMethod.POST;
+                authParam = randNum + COLON;
+                break;
+            case 3:
+                url = URL_START + randNum + CHANGE_TARIFF_URL + TARIFF_ID_URL + random.nextInt(11, 12);
+                method = HttpMethod.POST;
+                break;
+            case 4:
+                url = URL_START + CREATE_URL + randNum + TARIFF_ID_URL + random.nextInt(11, 12);
+                method = HttpMethod.POST;
+                randNum = abonentsForCrm.get(random.nextInt(aFCMarker++, abonentsForCrm.size() - 1));
+                break;
+            default:
+                url = URL_START + URL_LIST;
+                break;
+        }
+        logger.info("CDR: Sending URL To CRM: " + url);
+        try {
+            logger.info("CDR Response From CRM: " + sendRestToCrm(url, authParam, method));
+        } catch (Exception e) {
+            logger.warning("CDR Response From CRM - Not Correct Request: " + e.getMessage());
+        }
+    }
+
+    private ResponseEntity<String> sendRestToCrm(String url, String authParams, HttpMethod httpMethod) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(AUTH_HEADER, BASIC + authParams);
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        return restTemplate.exchange(url, httpMethod, entity, String.class);
     }
 }
