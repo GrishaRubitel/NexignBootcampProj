@@ -11,12 +11,35 @@ import java.io.IOException;
 @SpringBootApplication
 @ComponentScan(basePackages = {"com.bootcamp_proj"})
 public class BootcampProjApplication {
-
 	public static void main(String[] args) {
 		SpringApplication.run(BootcampProjApplication.class, args);
 
 		System.out.println("start");
 		BrtHandler brt = BrtHandler.getInstance();
 		brt.startWithExistingFile();
+		System.out.println("end");
+		System.out.println("start");
+		brt.startWithExistingFile();
+		System.out.println("end");
+		System.out.println("start");
+		brt.startWithExistingFile();
+		System.out.println("end");
+		System.out.println("start");
+		brt.startWithExistingFile();
+		System.out.println("end");
+		System.out.println("start");
+		brt.startWithExistingFile();
+		System.out.println("end");
+		System.out.println("start");System.out.println("start");System.out.println("start");System.out.println("start");
+		CdrGenerator cdr = CdrGenerator.getInstance();
+        try {
+            cdr.switchEmulator();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+
 	}
 }

@@ -38,18 +38,6 @@ import java.util.regex.Pattern;
 @RequestMapping("/api/brt/")
 @RestController
 public class BrtHandler implements InitializingBean {
-
-    private static BrtHandler instance = null;
-
-    @Override
-    public void afterPropertiesSet() throws Exception {
-        instance = this;
-    }
-
-    public static BrtHandler getInstance() {
-        return instance;
-    }
-
     private static final String BOOTCAMP_PROJ_GROUP = "bootcamp-proj-group";
     private static final String DATA_TOPIC = "data-topic";
     private static final String PART_ZERO = "0";
@@ -85,6 +73,17 @@ public class BrtHandler implements InitializingBean {
     private static final RestTemplate restTemplate = new RestTemplate();
     private static final Logger logger = Logger.getLogger(BrtHandler.class.getName());
     private static final Map<String, String> unhandledRecords = new HashMap<>();
+
+    private static BrtHandler instance = null;
+
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        instance = this;
+    }
+
+    public static BrtHandler getInstance() {
+        return instance;
+    }
 
     /**
      * Пост-конструктор для инициализации чувствительных объектов до начала работы сервиса.
