@@ -70,12 +70,12 @@ public class CrmHandler {
         }
     }
 
-    @PostMapping("/create/{msisdn}")
-    private ResponseEntity<String> managerCreateNewAbonent(@PathVariable String msisdn,
+    @PostMapping("/create")
+    private ResponseEntity<String> managerCreateNewAbonent(
                                                            @RequestBody String body,
                                                            @RequestHeader(AUTH_HEADER) HttpHeaders head) {
         if (checkAdminAuthorization(head)) {
-            String url = STARTER_URL + CREATE_URL + URL_BREAK + msisdn;
+            String url = STARTER_URL + CREATE_URL;
             return sendRequestToBrt(url, HttpMethod.POST, body);
         } else {
             return new ResponseEntity<>(DENY, HttpStatus.UNAUTHORIZED);
@@ -88,7 +88,7 @@ public class CrmHandler {
                                                               @RequestHeader(AUTH_HEADER) HttpHeaders head) {
         if (checkAdminAuthorization(head)) {
             String url = STARTER_URL + URL_BREAK + msisdn + TARIFF_CHANGER_URL + TARIFF_PARAM + tariffId;
-            return sendRequestToBrt(url, HttpMethod.POST);
+            return sendRequestToBrt(url, HttpMethod.PUT);
         } else {
             return new ResponseEntity<>(DENY, HttpStatus.UNAUTHORIZED);
         }

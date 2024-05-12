@@ -159,13 +159,12 @@ public class BrtHandler {
 
     /**
      * API для обработки запросов со стороны CRM по регистрации абонента в сети оператора "Ромашка"
-     * @param msisdn Номер телефона
      * @param body Тело запроса
      * @param head Заголовок с сигнатуорй источника
-     * @return Ответ с информаицей об абоненте или с информацией об ошибке
+     * @return Ответ с информацией об абоненте или с информацией об ошибке
      */
-    @PostMapping("/create/{msisdn}")
-    private ResponseEntity<String> managerCreateNewAbonent(@PathVariable String msisdn, @RequestBody String body, @RequestHeader(CUSTOM_HEADER) String head) {
+    @PostMapping("/create")
+    private ResponseEntity<String> managerCreateNewAbonent(@RequestBody String body, @RequestHeader(CUSTOM_HEADER) String head) {
         if (!checkSignature(head)) {
             return new ResponseEntity<>(DENY, HttpStatus.UNAUTHORIZED);
         } else {
@@ -178,6 +177,7 @@ public class BrtHandler {
             }
             double money = jsonNode.get("money").asDouble();
             String tariffId = jsonNode.get("tariffId").asText();
+            String msisdn = jsonNode.get("msisdn").asText();
 
             if (money == 0) {
                 money = 100;

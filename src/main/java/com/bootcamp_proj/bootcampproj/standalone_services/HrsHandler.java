@@ -64,7 +64,7 @@ public class HrsHandler {
     }
 
     @GetMapping("/monthly-pay")
-    public ResponseEntity<String> monthlyPay(@RequestParam String param, @RequestHeader(CUSTOM_HEADER) String head) {
+    public ResponseEntity<String> monthlyPay(@RequestParam(name = "param") String param, @RequestHeader(CUSTOM_HEADER) String head) {
         if (checkSignature(head)) {
             return payDay(decodeParam(param));
         } else {
@@ -89,7 +89,7 @@ public class HrsHandler {
         try {
             jsonNode = objectMapper.readTree(param);
             msisdn = jsonNode.get("msisdn").asLong();
-            tariff = jsonNode.get("tariff_id").asText();
+            tariff = jsonNode.get("tariffId").asText();
         } catch (JsonProcessingException e) {
             return new ResponseEntity<>(INCORRECT_DATA, HttpStatus.BAD_REQUEST);
         }
@@ -107,7 +107,7 @@ public class HrsHandler {
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode jsonNode = objectMapper.readTree(param);
             long msisdn = jsonNode.get("msisdn").asLong();
-            String tariff = jsonNode.get("tariff_d").asText();
+            String tariff = jsonNode.get("tariffId").asText();
 
             UserMinutes tempUser = checkUserContainment(msisdn, tariff);
             tempUser.zeroAllMinutes();

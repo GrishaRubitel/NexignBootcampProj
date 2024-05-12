@@ -1,4 +1,4 @@
-﻿openapi: '3.0.0'
+openapi: '3.0.0'
 info: 
   title: Ромашка API
   description: API предоставляет доступ к данным абонентов "Ромашки". Сделана на Nexign Bootcamp для проекта Baby Billing.
@@ -22,7 +22,7 @@ paths:
       operationId: getAllAbonents
       responses:
         '200':
-          $ref: '#/components/responses/AbonentSuccess'
+          $ref: '#/components/responses/AbonentsSuccess'
         '400':
           $ref: '#/components/responses/4xxResponse'
         default: 
@@ -59,7 +59,7 @@ paths:
       security:
         - adminRole: []
         - abonentRole: []
-  /abonents/create/{msisdn}:
+  /abonents/create:
     summary: Создание нового абонента
     description: Создание нового абонента
     post:
@@ -70,14 +70,6 @@ paths:
         Добавление нового абонента.
          * Если данные некорректны, должна быть возвращена ошибка.
       operationId: save
-      parameters:
-        - name: msisdn
-          in: path
-          description: Телефонный номер абонента
-          schema:
-            type: integer
-            format: int64
-          required: true
       requestBody:
         description: Данные нового абонента
         required: true
@@ -217,6 +209,43 @@ components:
       example:
         msisdn: 70987654321
         money: 82.8
+    Abonents:
+      type: array
+      description: Информация о нескольких абонентах "Ромашки"
+      items: 
+        type: object
+        properties:
+          msisdn:
+            type: integer
+            format: int64
+            description: Телефонный номер абонента
+          tariffId:
+            type: integer
+            description: Уникальный идентификатор тарифа абонента
+          money:
+            type: number
+            description: Баланс абонента
+            default: 100
+        required:
+          - msisdn
+      example:
+          [  
+            {
+              "msisdn": 74571938267,
+              "tariffId": 12,
+              "money": 200
+            },
+            {
+              "msisdn": 7968969935,
+              "tariffId": 11,
+              "money": 100
+            },
+            {
+              "msisdn": 71364416478,
+              "tariffId": 12,
+              "money": 10
+            }
+          ]
   responses:
     AbonentSuccess: 
       description: Успешный ответ
@@ -225,6 +254,16 @@ components:
           schema:
             allOf:
               - $ref: '#/components/schemas/Abonent'
+              - required:
+                  - tariffId
+                  - money
+    AbonentsSuccess: 
+      description: Успешный ответ
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Abonents'
               - required:
                   - tariffId
                   - money
@@ -250,3 +289,7 @@ components:
 security:
   - adminRole: []
   - abonentRole: []
+
+
+    
+
