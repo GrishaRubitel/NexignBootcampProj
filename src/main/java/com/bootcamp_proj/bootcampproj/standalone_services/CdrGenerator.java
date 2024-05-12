@@ -8,10 +8,7 @@ import com.bootcamp_proj.bootcampproj.psql_transactions.Transaction;
 import com.bootcamp_proj.bootcampproj.psql_transactions.TransactionService;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.EnableAsync;
@@ -34,23 +31,23 @@ public class CdrGenerator implements InitializingBean {
     private static final String IN_CALL_TYPE_CODE = "02";
     private static final int DELAY = 300;
     private static final double CALL_CHANCE = 0.7;
-    private static final double CRM_CHANCE = 0.07;
+    private static final double CRM_CHANCE = 0.1;
     private static final double CALL_CHANCE_EQUATOR = 1 - (1 - CALL_CHANCE) / 2;
     private static final String TEMP_CDR_TXT = "./temp/CDR.txt";
     private static final String CDR_ABONENTS_TXT = "./temp/CrmAbonents.txt";
     private static final String DATA_TOPIC = "data-topic";
     private static final int PART_ZERO_INT = 0;
     private static final String URL_START = "http://localhost:8082/abonents/";
-    private static final String URL_PAY = "/pay?value=";
+    private static final String URL_PAY = "/pay?money=";
     private static final String URL_LIST = "list";
-    private static final String CREATE_URL = "create/";
-    private static final String TARIFF_ID_URL = "?tariff-id=";
-    private static final String CHANGE_TARIFF_URL = "/change-tariff";
+    private static final String CREATE_URL = "create";
+    private static final String TARIFF_ID_URL = "?tariffId=";
+    private static final String CHANGE_TARIFF_URL = "/changeTariff";
     private static final String URL_BREAK = "/";
     private static final String AUTH_HEADER = "Authorization";
+    private static final String BASIC = "Basic ";
     private static final String COLON = ":";
     private static final String DEFAULT_AUTH = "admin:admin";
-    public static final String BASIC = "Basic ";
     private static int aFCMarker = 10;
 
     private static LinkedList<AbonentHolder> abonents;
@@ -116,7 +113,7 @@ public class CdrGenerator implements InitializingBean {
                     generateCallRecord(unixStart, abonents.get(2), abonents.get(3));
                 }
             } else if (dur <= CRM_CHANCE) {
-                //generateCrmOperation();
+                generateCrmOperation();
             }
 
             checkLength();
@@ -199,10 +196,11 @@ public class CdrGenerator implements InitializingBean {
     protected void generateCrmOperation() {
         int dur = random.nextInt(0, 4);
         String url;
-        String randNum = abonentsForCrm.get(random.nextInt(10));
+        String randNum = abonentsForCrm.get(random.nextInt(aFCMarker));
 
         HttpMethod method = HttpMethod.GET;
         String authParam = DEFAULT_AUTH;
+        String body = null;
 
         switch (dur) {
             case 0:
@@ -213,18 +211,21 @@ public class CdrGenerator implements InitializingBean {
                 authParam = randNum + COLON;
                 break;
             case 2:
-                url = URL_START + randNum + URL_PAY + random.nextInt(100, 1000);
-                method = HttpMethod.POST;
+                url = URL_START + randNum + URL_PAY + random.nextInt(1, 100000);
+                method = HttpMethod.PUT;
                 authParam = randNum + COLON;
                 break;
             case 3:
                 url = URL_START + randNum + CHANGE_TARIFF_URL + TARIFF_ID_URL + random.nextInt(11, 12);
-                method = HttpMethod.POST;
+                method = HttpMethod.PUT;
                 break;
             case 4:
-                url = URL_START + CREATE_URL + randNum + TARIFF_ID_URL + random.nextInt(11, 12);
+                url = URL_START + CREATE_URL;
                 method = HttpMethod.POST;
                 randNum = abonentsForCrm.get(random.nextInt(aFCMarker++, abonentsForCrm.size() - 1));
+                int tariffId = random.nextInt(11, 12);
+                int money = random.nextInt(1, 100000);
+                body = String.format("{\"msisdn\": %d, \"tariffId\": %d, \"money\": %.2f}", randNum, tariffId, money);
                 break;
             default:
                 url = URL_START + URL_LIST;
@@ -232,7 +233,11 @@ public class CdrGenerator implements InitializingBean {
         }
         logger.info("CDR: Sending URL To CRM: " + url);
         try {
-            logger.info("CDR Response From CRM: " + sendRestToCrm(url, authParam, method));
+            if (body == null) {
+                logger.info("CDR Response From CRM: " + sendRestToCrm(url, authParam, method));
+            } else {
+                logger.info("CDR Response From CRM: " + sendRestToCrm(url, authParam, method, body));
+            }
         } catch (Exception e) {
             logger.warning("CDR Response From CRM - Not Correct Request: " + e.getMessage());
         }
@@ -241,9 +246,31 @@ public class CdrGenerator implements InitializingBean {
     private ResponseEntity<String> sendRestToCrm(String url, String authParams, HttpMethod httpMethod) {
         HttpHeaders headers = new HttpHeaders();
         String encodedAuthParams = Base64.getEncoder().encodeToString(authParams.getBytes());
+        logger.info(BASIC + encodedAuthParams);
         headers.add(AUTH_HEADER, BASIC + encodedAuthParams);
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
-        return restTemplate.exchange(url, httpMethod, entity, String.class);
+        return finalSendToBrt(url, httpMethod, entity);
+    }
+
+    private ResponseEntity<String> sendRestToCrm(String url, String authParams, HttpMethod httpMethod, String body) {
+        HttpHeaders headers = new HttpHeaders();
+        String encodedAuthParams = Base64.getEncoder().encodeToString(authParams.getBytes());
+        logger.info(BASIC + encodedAuthParams);
+        headers.add(AUTH_HEADER, BASIC + encodedAuthParams);
+        HttpEntity<String> entity = new HttpEntity<>(body, headers);
+
+        return finalSendToBrt(url, httpMethod, entity);
+    }
+
+    private ResponseEntity<String> finalSendToBrt(String url, HttpMethod method, HttpEntity<String> entity) {
+        ResponseEntity<String> response;
+        try {
+            response = restTemplate.exchange(url, method, entity, String.class);
+            return response;
+        } catch(Exception e) {
+            logger.warning(e.getMessage());
+            return new ResponseEntity<>("Service unavailable. Try Again Later", HttpStatus.BAD_REQUEST);
+        }
     }
 }

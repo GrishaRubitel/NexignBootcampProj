@@ -39,7 +39,7 @@ public class HrsHandler {
 
     private WeakHashMap<String, TariffStats> tariffStats;
     private Map<Long, UserMinutes> usersWithTariff = new HashMap<>();
-    private static final Logger logger = Logger.getLogger(BrtHandler.class.getName());
+    private static final Logger logger = Logger.getLogger(HrsHandler.class.getName());
 
 
     @PostConstruct
@@ -73,7 +73,8 @@ public class HrsHandler {
     }
 
     @PutMapping("/change-tariff")
-    public ResponseEntity<String> changeTariff(@RequestParam String param, @RequestHeader(CUSTOM_HEADER) String head) {
+    public ResponseEntity<String> changeTariff(@RequestParam String param,
+                                               @RequestHeader(CUSTOM_HEADER) String head) {
         if (checkSignature(head)) {
             return updateLocalTariff(decodeParam(param));
         } else {
@@ -94,10 +95,17 @@ public class HrsHandler {
             return new ResponseEntity<>(INCORRECT_DATA, HttpStatus.BAD_REQUEST);
         }
 
-        UserMinutes user = usersWithTariff.get(msisdn);
-        user.setTariff_id(tariff);
-
-        usersWithTariff.put(user.getMsisdn(), user);
+        TariffStats tS = tariffStats.get(tariff);
+        if (tS.getNum_of_minutes() == 0) {
+            if (checkUserContainment(msisdn, tariff) != null) {
+                usersWithTariff.remove(msisdn);
+                userMinutesService.deleteUser(msisdn);
+            }
+        } else {
+            UserMinutes user = checkUserContainment(msisdn, tariff);
+            usersWithTariff.put(user.getMsisdn(), user);
+            userMinutesService.saveUserMinutes(user);
+        }
 
         return new ResponseEntity<>(HttpStatus.OK);
     }
