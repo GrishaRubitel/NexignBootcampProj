@@ -10,6 +10,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -36,11 +37,23 @@ import java.util.regex.Pattern;
 @EnableAsync
 @RequestMapping("/api/brt/")
 @RestController
-public class BrtHandler {
+public class BrtHandler implements InitializingBean {
+
+    private static BrtHandler instance = null;
+
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        instance = this;
+    }
+
+    public static BrtHandler getInstance() {
+        return instance;
+    }
+
     private static final String BOOTCAMP_PROJ_GROUP = "bootcamp-proj-group";
     private static final String DATA_TOPIC = "data-topic";
     private static final String PART_ZERO = "0";
-    //private static final String CDR_FILE = "../../../../temp/CDR.txt";
+    private static final String CDR_FILE = "./temp/CDR.txt";
     private static final String HOST = "http://localhost:";
     private static final String SINGLE_PAY_PARAM = "/api/hrs/single-pay?param=";
     private static final String MONTHLY_PAY_PARAM = "/api/hrs/monthly-pay?param=";
@@ -481,23 +494,22 @@ public class BrtHandler {
         return monthlyTariffs;
     }
 
-//    /**
-//     * Метод для мануального запуска BRT-сервиса при помощи информации из файла
-//     */
-//
-//    private void startWithExistingFile() {
-//        StringBuilder content = new StringBuilder();
-//        try (BufferedReader reader = new BufferedReader(new FileReader(CDR_FILE))) {
-//            String line;
-//            while ((line = reader.readLine()) != null) {
-//                content.append(line).append("\n");
-//            }
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-//
-//        cdrDataHandler(content.toString());
-//    }
+    /**
+     * Метод для мануального запуска BRT-сервиса при помощи информации из файла
+     */
+
+    public void startWithExistingFile() {
+        StringBuilder content = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(new FileReader(CDR_FILE))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                content.append(line).append("\n");
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        cdrDataHandler(content.toString());
+    }
 
     /**
      * Метод для кодирования параметра URL-запроса

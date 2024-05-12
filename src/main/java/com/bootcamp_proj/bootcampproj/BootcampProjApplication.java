@@ -1,5 +1,6 @@
 package com.bootcamp_proj.bootcampproj;
 
+import com.bootcamp_proj.bootcampproj.standalone_services.BrtHandler;
 import com.bootcamp_proj.bootcampproj.standalone_services.CdrGenerator;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -15,13 +16,7 @@ public class BootcampProjApplication {
 		SpringApplication.run(BootcampProjApplication.class, args);
 
 		System.out.println("start");
-		CdrGenerator cdrGenerator = CdrGenerator.getInstance();
-		try {
-			cdrGenerator.switchEmulator();
-		} catch (InterruptedException e) {
-			System.out.println(e);
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		}
+		BrtHandler brt = BrtHandler.getInstance();
+		brt.startWithExistingFile();
 	}
 }
