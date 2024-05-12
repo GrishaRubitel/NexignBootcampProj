@@ -10,6 +10,7 @@ import java.io.IOException;
  * Расширен полями и методами, необходимыми для работы внутри HRS
  */
 public class HrsTransaction extends BrtTransaction {
+    private double timeSpent = 0;
 
     public HrsTransaction(String json) throws Exception {
         try {
@@ -28,5 +29,13 @@ public class HrsTransaction extends BrtTransaction {
 
     public int getCallLength() {
         return unixEnd - unixStart;
+    }
+
+    public double getTimeSpent() {
+        return timeSpent;
+    }
+
+    public void setTimeSpent(double timeSpent) {
+        this.timeSpent = timeSpent;
     }
 }

@@ -65,8 +65,9 @@ public class BrtHandler {
     private static final String LOGS_PAYMENT_CORROSION = "./logs/PaymentCorrosion.txt";
     private static final String LOGS_CDR_CORROSION = "./logs/CDRCorrosion.txt";
     private static final String BRT_SIGNATURE = "BRT-Signature";
+    public static final String REGEX = ", ";
 
-    private static WeakHashMap<Long, BrtAbonents> brtAbonentsMap;
+    private static Map<Long, BrtAbonents> brtAbonentsMap;
     private static LinkedList<String> monthlyTariffs;
     private static MonthStack monthHolder;
     private static final RestTemplate restTemplate = new RestTemplate();
@@ -117,14 +118,14 @@ public class BrtHandler {
      */
     @GetMapping("/list/{msisdn}")
     private ResponseEntity<String> returnCurrentAbonents(@PathVariable String msisdn, @RequestHeader(CUSTOM_HEADER) String head) {
-        if (!checkSignature(head)) {
-            return new ResponseEntity<>(DENY, HttpStatus.UNAUTHORIZED);
-        } else {
+        if (checkSignature(head)) {
             long num = Long.parseLong(decodeParam(msisdn));
             if (checkAbonent(num)) {
                 return new ResponseEntity<>(brtAbonentsMap.get(num).toJson(), HttpStatus.OK);
             }
             return new ResponseEntity<>(NOT_FOUND, HttpStatus.NO_CONTENT);
+        } else {
+            return new ResponseEntity<>(DENY, HttpStatus.UNAUTHORIZED);
         }
     }
 
@@ -137,9 +138,7 @@ public class BrtHandler {
      */
     @PostMapping("/{msisdn}/pay")
     private ResponseEntity<String> proceedAbonentPayment(@PathVariable String msisdn, @RequestParam("money") String value, @RequestHeader(CUSTOM_HEADER) String head) {
-        if (!checkSignature(head)) {
-            return new ResponseEntity<>(DENY, HttpStatus.UNAUTHORIZED);
-        } else {
+        if (checkSignature(head)) {
             long num = Long.parseLong(msisdn);
             BigDecimal bDec = BigDecimal.valueOf(Double.parseDouble(value));
             int scale = bDec.scale();
@@ -154,6 +153,8 @@ public class BrtHandler {
                 return new ResponseEntity<>(PAYMENT_PROCEEDED + "\n" + ab.toJson(), HttpStatus.OK);
             }
             return new ResponseEntity<>(NOT_FOUND, HttpStatus.NO_CONTENT);
+        } else {
+            return new ResponseEntity<>(DENY, HttpStatus.UNAUTHORIZED);
         }
     }
 
@@ -165,9 +166,7 @@ public class BrtHandler {
      */
     @PostMapping("/create")
     private ResponseEntity<String> managerCreateNewAbonent(@RequestBody String body, @RequestHeader(CUSTOM_HEADER) String head) {
-        if (!checkSignature(head)) {
-            return new ResponseEntity<>(DENY, HttpStatus.UNAUTHORIZED);
-        } else {
+        if (checkSignature(head)) {
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode jsonNode;
             try {
@@ -197,6 +196,8 @@ public class BrtHandler {
                 return new ResponseEntity<>(ALREADY_REGISTRED, HttpStatus.BAD_REQUEST);
             }
             return new ResponseEntity<>(INCORRECT_MSISDN, HttpStatus.BAD_REQUEST);
+        } else {
+            return new ResponseEntity<>(DENY, HttpStatus.UNAUTHORIZED);
         }
     }
 
@@ -211,9 +212,7 @@ public class BrtHandler {
     private ResponseEntity<String> managerUpdateAbonentTariff(@PathVariable String msisdn,
                                                               @RequestParam("tariffId") String tariffId,
                                                               @RequestHeader(CUSTOM_HEADER) String head) {
-        if (!checkSignature(head)) {
-            return new ResponseEntity<>(DENY, HttpStatus.UNAUTHORIZED);
-        } else {
+        if (checkSignature(head)) {
             long num = Long.parseLong(msisdn);
             if (checkAbonent(num)) {
                 BrtAbonents ab = brtAbonentsMap.get(num);
@@ -243,9 +242,12 @@ public class BrtHandler {
                 brtAbonentsService.commitUserTransaction(ab);
 
                 return new ResponseEntity<>(ab.toJson(), HttpStatus.OK);
+            } else {
+                return new ResponseEntity<>(DENY, HttpStatus.UNAUTHORIZED);
             }
+        } else {
+            return new ResponseEntity<>(DENY, HttpStatus.UNAUTHORIZED);
         }
-        return new ResponseEntity<>(DENY, HttpStatus.UNAUTHORIZED);
     }
 
     /**
@@ -255,16 +257,14 @@ public class BrtHandler {
      */
     @GetMapping("/list")
     private ResponseEntity<String> returnAllAbonents(@RequestHeader(CUSTOM_HEADER) String head) {
-        if (!checkSignature(head)) {
-            return new ResponseEntity<>(DENY, HttpStatus.UNAUTHORIZED);
-        } else {
+        if (checkSignature(head)) {
             Collection<BrtAbonents> abonentsList = selectAllAbonents().values();
             if (!abonentsList.isEmpty()) {
                 StringBuilder jsonBuilder = new StringBuilder("[");
                 for (BrtAbonents abonent : abonentsList) {
                     String abonentJson = abonent.toJson();
                     jsonBuilder.append(abonentJson);
-                    jsonBuilder.append(", ");
+                    jsonBuilder.append(REGEX);
                 }
                 jsonBuilder.delete(jsonBuilder.length() - 2, jsonBuilder.length());
                 jsonBuilder.append("]");
@@ -272,6 +272,8 @@ public class BrtHandler {
             } else {
                 return new ResponseEntity<>(NOT_FOUND, HttpStatus.NO_CONTENT);
             }
+        } else {
+            return new ResponseEntity<>(DENY, HttpStatus.UNAUTHORIZED);
         }
     }
 
@@ -314,20 +316,18 @@ public class BrtHandler {
         for (BrtTransaction record : records) {
             checkMonthChangement(record.getUnixEnd());
 
-            if (checkAbonent(record.getMsisdn())) {
-                record.setTariffId(brtAbonentsMap.get(record.getMsisdn()).getTariffId());
-                record.setInNet(checkAbonent(record.getMsisdnTo()));
+            record.setTariffId(brtAbonentsMap.get(record.getMsisdn()).getTariffId());
+            record.setInNet(checkAbonent(record.getMsisdnTo()));
 
-                String checkSuccess = sendRestToHrs(record.toJson(), SINGLE_PAY_PARAM, HttpMethod.GET);
+            String checkSuccess = sendRestToHrs(record.toJson(), SINGLE_PAY_PARAM, HttpMethod.GET);
 
-                if (checkSuccess == null) {
-                    unhandledRecords.put(record.toJson(), SINGLE_PAY_PARAM);
-                    continue;
-                } else if (!unhandledRecords.isEmpty()) {
-                    proceedUnhandledRecords();
-                }
-                proceedPayment(checkSuccess);
+            if (checkSuccess == null) {
+                unhandledRecords.put(record.toJson(), SINGLE_PAY_PARAM);
+                continue;
+            } else if (!unhandledRecords.isEmpty()) {
+                proceedUnhandledRecords();
             }
+            proceedPayment(checkSuccess);
         }
     }
 
@@ -339,15 +339,17 @@ public class BrtHandler {
         try (BufferedReader br = new BufferedReader(new StringReader(message))) {
             String line;
             while ((line = br.readLine()) != null) {
-                BrtTransaction temp;
+                String[] temp;
                 try {
-                    temp = new BrtTransaction(line);
+                    temp = line.split(REGEX);
                 } catch (Exception e) {
                     logger.warning("Incorrect CDR record. Check \"logs/CDRCorrosion.txt\"");
                     writeCorrosionToFile(line, LOGS_CDR_CORROSION);
                     break;
                 }
-                records.add(temp);
+                if (checkAbonent(Long.parseLong(temp[2]))) {
+                    records.add(new BrtTransaction(temp));
+                }
             }
         } catch (IOException e) {
             logger.warning(e.getMessage());
@@ -456,8 +458,8 @@ public class BrtHandler {
     /**
      * Метод извлекает всех абонентов из БД "ромашки"
      */
-    private WeakHashMap<Long, BrtAbonents> selectAllAbonents() {
-        WeakHashMap<Long, BrtAbonents> brtAbonentsMap = new WeakHashMap<>();
+    private Map<Long, BrtAbonents> selectAllAbonents() {
+        Map<Long, BrtAbonents> brtAbonentsMap = new HashMap<>();
 
         for (BrtAbonents elem : brtAbonentsService.findAll()) {
             brtAbonentsMap.put(elem.getMsisdn(), elem);
@@ -480,24 +482,6 @@ public class BrtHandler {
 
         return monthlyTariffs;
     }
-
-//    /**
-//     * Метод для мануального запуска BRT-сервиса при помощи информации из файла
-//     */
-//
-//    private void startWithExistingFile() {
-//        StringBuilder content = new StringBuilder();
-//        try (BufferedReader reader = new BufferedReader(new FileReader(CDR_FILE))) {
-//            String line;
-//            while ((line = reader.readLine()) != null) {
-//                content.append(line).append("\n");
-//            }
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-//
-//        cdrDataHandler(content.toString());
-//    }
 
     /**
      * Метод для кодирования параметра URL-запроса

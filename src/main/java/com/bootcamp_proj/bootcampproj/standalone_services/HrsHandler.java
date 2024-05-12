@@ -23,7 +23,6 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.WeakHashMap;
 import java.util.logging.Logger;
 
 @RestController
@@ -37,11 +36,13 @@ public class HrsHandler {
     private static final String BRT_SIGNATURE = "BRT-Signature";
     private static final String CUSTOM_HEADER = "Custom-Header";
 
-    private WeakHashMap<String, TariffStats> tariffStats;
+    private Map<String, TariffStats> tariffStats;
     private Map<Long, UserMinutes> usersWithTariff = new HashMap<>();
     private static final Logger logger = Logger.getLogger(HrsHandler.class.getName());
 
-
+    /**
+     * Конструктор вызывает метод извлечения из БД информации о тарифах
+     */
     @PostConstruct
     private void initializeMap() {
         tariffStats = uploadTariff();
@@ -54,6 +55,12 @@ public class HrsHandler {
     @Autowired
     private UserMinutesService userMinutesService;
 
+    /**
+     * API для обработки отдельных звонков
+     * @param param Информация о звонке
+     * @param head Служебная информация для подтверждения отправителя (типа декапсуляция)
+     * @return Ответ отправителю
+     */
     @GetMapping("/single-pay")
     public ResponseEntity<String> singlePay(@RequestParam String param, @RequestHeader(CUSTOM_HEADER) String head) {
         if (checkSignature(head)) {
@@ -63,6 +70,12 @@ public class HrsHandler {
         }
     }
 
+    /**
+     * API для обработки ежемесячных списаний
+     * @param param Информация об абоненте
+     * @param head Служебная информация для подтверждения отправителя (типа декапсуляция)
+     * @return Ответ отправителю
+     */
     @GetMapping("/monthly-pay")
     public ResponseEntity<String> monthlyPay(@RequestParam(name = "param") String param, @RequestHeader(CUSTOM_HEADER) String head) {
         if (checkSignature(head)) {
@@ -72,6 +85,12 @@ public class HrsHandler {
         }
     }
 
+    /**
+     * API для обработки изменения тарифа абонента
+     * @param param Информация об абоненте
+     * @param head Служебная информация для подтверждения отправителя (типа декапсуляция)
+     * @return Ответ отправителю
+     */
     @PutMapping("/change-tariff")
     public ResponseEntity<String> changeTariff(@RequestParam String param,
                                                @RequestHeader(CUSTOM_HEADER) String head) {
@@ -82,6 +101,11 @@ public class HrsHandler {
         }
     }
 
+    /**
+     * Метод для обновления тарифа в контексте HRS. Обновляем кеш и таблицу истраченных минут
+     * @param param Информация об абоненте (номер и тариф)
+     * @return Ответ отправителю
+     */
     private ResponseEntity<String> updateLocalTariff(String param) {
         ObjectMapper objectMapper = new ObjectMapper();
         JsonNode jsonNode = null;
@@ -97,10 +121,8 @@ public class HrsHandler {
 
         TariffStats tS = tariffStats.get(tariff);
         if (tS.getNum_of_minutes() == 0) {
-            if (checkUserContainment(msisdn, tariff) != null) {
-                usersWithTariff.remove(msisdn);
-                userMinutesService.deleteUser(msisdn);
-            }
+            usersWithTariff.remove(msisdn);
+            userMinutesService.deleteUser(msisdn);
         } else {
             UserMinutes user = checkUserContainment(msisdn, tariff);
             usersWithTariff.put(user.getMsisdn(), user);
@@ -110,6 +132,11 @@ public class HrsHandler {
         return new ResponseEntity<>(HttpStatus.OK);
     }
 
+    /**
+     * Метод обработки ежемесячных списаний
+     * @param param Информация об абоненте (номер и тариф)
+     * @return Ответ отправителю
+     */
     private ResponseEntity<String> payDay(String param) {
         try {
             ObjectMapper objectMapper = new ObjectMapper();
@@ -130,6 +157,11 @@ public class HrsHandler {
         }
     }
 
+    /**
+     * Метод определяет, какой тариф принадлежит абоненту и есть ли в этом тарифе количество ежемесячных минут
+     * @param message Информация об абоненте (номер и тариф)
+     * @return
+     */
     private ResponseEntity<String> tariffDispatch(String message) {
         HrsTransaction record;
         try {
@@ -137,7 +169,7 @@ public class HrsHandler {
         } catch (Exception e) {
             return new ResponseEntity<>(INCORRECT_DATA, HttpStatus.BAD_REQUEST);
         }
-        if (tariffStats.get(record.getTariffId()).getPrice_of_period() == 0) {
+        if (tariffStats.get(record.getTariffId()).getNum_of_minutes() == 0) {
             String response = noMinutesTariff(record, record.getTariffId());
             return new ResponseEntity<>(response, HttpStatus.OK);
         }
@@ -145,8 +177,19 @@ public class HrsHandler {
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
+    /**
+     * Оработки звонков абонентов, у которых в тарифе не предусмотрено количество минут
+     * @param record Информация о звонке
+     * @param tariff Тариф абонента
+     * @return Стоимость звонка и номер абонента
+     */
     private String noMinutesTariff(HrsTransaction record, String tariff) {
-        double timeSpent = Math.ceil(record.getCallLength() / 60);
+        double timeSpent;
+        if (record.getTimeSpent() == 0) {
+            timeSpent = Math.ceil(record.getCallLength() / 60);
+        } else {
+            timeSpent = record.getTimeSpent();
+        }
 
         TariffStats tStats = tariffStats.get(tariff);
         double price;
@@ -164,6 +207,12 @@ public class HrsHandler {
         return prepareJson(record.getMsisdn(), sum);
     }
 
+    /**
+     * Оработки звонков абонентов, у которых в тарифе имеетя какое-то количество минут. Если количество минут
+     * израсходовано, будет вызван метод noMinutesTariff и произведен обсчет минут по тарифу 11
+     * @param record Информация о звонке
+     * @return Стоимость звонка и номер абонента
+     */
     private String withMinutesTariff(HrsTransaction record) {
         double timeSpent = Math.ceil(record.getCallLength() / 60);
 
@@ -177,7 +226,9 @@ public class HrsHandler {
             userMinutes.increaseMinutes((int) timeSpent);
             returnVal = prepareJson(record.getMsisdn(), 0);
         } else {
+            timeSpent -= tStats.getNum_of_minutes() - userMinutes.getUsed_minutes_in();
             userMinutes.setAllMinutes(tStats.getNum_of_minutes());
+            record.setTimeSpent(timeSpent);
             returnVal = noMinutesTariff(record, TARIFF_BY_DEFAULT);
         }
 
@@ -185,6 +236,12 @@ public class HrsHandler {
         return returnVal;
     }
 
+    /**
+     * Проверка абонента на вхождение в базу/кеш абонентов с минутным тарифом
+     * @param msisdn Номер телефона
+     * @param tariff Тариф
+     * @return Абонент с количеством истраченных минут
+     */
     private UserMinutes checkUserContainment(long msisdn, String tariff) {
         if (usersWithTariff.containsKey(msisdn)) {
             return usersWithTariff.get(msisdn);
@@ -195,14 +252,23 @@ public class HrsHandler {
         }
     }
 
-    private  WeakHashMap<String, TariffStats> uploadTariff() {
-        WeakHashMap<String, TariffStats> tS = new WeakHashMap<>();
+    /**
+     * Метод для извлечения тарифов из базы данных
+     * @return Мапа тарифов
+     */
+    private  Map<String, TariffStats> uploadTariff() {
+        Map<String, TariffStats> tS = new HashMap<>();
         for (TariffStats elem : tariffStatsService.getAllTariffStats()) {
             tS.put(elem.getTariff_id(), elem);
         }
         return tS;
     }
 
+    /**
+     * Декодирование парамертов URL запроса
+     * @param encodedString Закодированния строка
+     * @return Декодированная строка
+     */
     private static String decodeParam(String encodedString) {
         String decodedString = "";
         try {
@@ -213,6 +279,12 @@ public class HrsHandler {
         return decodedString;
     }
 
+    /**
+     * Подготовка JSON'a с номером абонента и стоимостью звонка
+     * @param msisdn Номер абонента
+     * @param price Стоимость звонка
+     * @return JSON
+     */
     private static String prepareJson(long msisdn, double price) {
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("msisdn", msisdn);
@@ -220,6 +292,12 @@ public class HrsHandler {
         return jsonObject.toString();
     }
 
+    /**
+     * Округление переменных типа double до какого-то знака после запятой
+     * @param value Переменная
+     * @param places Количество знаков
+     * @return Округленная переменная
+     */
     public static double round(double value, int places) {
         long factor = (long) Math.pow(10, places);
         value = value * factor;
@@ -227,6 +305,11 @@ public class HrsHandler {
         return (double) tmp / factor;
     }
 
+    /**
+     * Типа декапсуляция HTTP запроса. Проверка совпадения заголовка с заданным типа JWT токеном
+     * @param head Заголовок
+     * @return Булеан совпадения или несовпадения
+     */
     private static boolean checkSignature(String head) {
         if (head != null) {
             return head.equals(BRT_SIGNATURE);

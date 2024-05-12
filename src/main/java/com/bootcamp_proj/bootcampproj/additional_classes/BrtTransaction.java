@@ -12,9 +12,7 @@ public class BrtTransaction extends Transaction {
     protected String tariffId;
     protected boolean inNet;
 
-    public BrtTransaction(String str) {
-        String[] starr = str.split(REGEX);
-
+    public BrtTransaction(String[] starr) {
         transactionId = Long.parseLong(starr[0]);
         callId = starr[1];
         msisdn = Long.parseLong(starr[2]);
